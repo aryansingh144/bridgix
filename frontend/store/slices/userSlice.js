@@ -1,0 +1,88 @@
+'use client';
+import { createSlice } from '@reduxjs/toolkit';
+
+const mockUsers = {
+  student: {
+    _id: 'mock-student-1',
+    name: 'Aryan Singh',
+    email: 'aryan.singh@example.com',
+    role: 'student',
+    avatar: 'https://ui-avatars.com/api/?name=Aryan+Singh&background=2BC0B4&color=fff&size=128',
+    age: 21,
+    education: 'B.Tech Computer Science',
+    status: 'Active',
+    yearOfStudy: '3rd Year',
+    location: 'New Delhi, India',
+    topSkills: ['React', 'Node.js', 'Python'],
+    bio: 'Passionate computer science student with a keen interest in full-stack development and AI.',
+    skills: ['JavaScript', 'React', 'Node.js', 'Python', 'MongoDB', 'Git'],
+    coreNeeds: ['Mentorship in AI/ML', 'Internship Opportunities', 'Career Guidance'],
+    points: 55,
+    college: 'IIT Delhi',
+    quote: '"The best way to predict the future is to invent it." — Alan Kay'
+  },
+  alumni: {
+    _id: 'mock-alumni-1',
+    name: 'Mohit Singh',
+    email: 'mohit.singh@example.com',
+    role: 'alumni',
+    avatar: 'https://ui-avatars.com/api/?name=Mohit+Singh&background=FF8C42&color=fff&size=128',
+    age: 28,
+    education: 'B.Tech Computer Science',
+    status: 'Working',
+    occupation: 'Senior Software Engineer at Google',
+    location: 'Bengaluru, India',
+    topSkills: ['System Design', 'Distributed Systems', 'Go'],
+    techLiteracy: 'Expert',
+    bio: 'Senior Software Engineer at Google with 5+ years of experience.',
+    services: ['Technical Interviews Preparation', 'Resume Review', 'Career Counseling'],
+    workExperience: ['Senior Software Engineer - Google (2021-Present)', 'Software Engineer - Amazon (2019-2021)'],
+    points: 105,
+    college: 'IIT Delhi',
+    quote: '"The journey of a thousand miles begins with one step."'
+  },
+  college: {
+    _id: 'mock-college-1',
+    name: 'IIT Delhi Admin',
+    email: 'admin@iitd.ac.in',
+    role: 'college',
+    avatar: 'https://ui-avatars.com/api/?name=IIT+Delhi&background=1a9e93&color=fff&size=128',
+    college: 'IIT Delhi',
+    location: 'New Delhi, India'
+  }
+};
+
+const initialState = {
+  currentUser: mockUsers.student,
+  activeRole: 'student',
+  mockUsers,
+  users: [],
+  loading: false,
+  error: null
+};
+
+const userSlice = createSlice({
+  name: 'user',
+  initialState,
+  reducers: {
+    setActiveRole: (state, action) => {
+      state.activeRole = action.payload;
+      state.currentUser = state.mockUsers[action.payload];
+    },
+    setUsers: (state, action) => {
+      state.users = action.payload;
+    },
+    setLoading: (state, action) => {
+      state.loading = action.payload;
+    },
+    setError: (state, action) => {
+      state.error = action.payload;
+    },
+    updateCurrentUser: (state, action) => {
+      state.currentUser = { ...state.currentUser, ...action.payload };
+    }
+  }
+});
+
+export const { setActiveRole, setUsers, setLoading, setError, updateCurrentUser } = userSlice.actions;
+export default userSlice.reducer;

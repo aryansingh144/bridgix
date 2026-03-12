@@ -1,0 +1,82 @@
+'use client';
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+export default function CollegeLoginPage() {
+  const router = useRouter();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const errs = {};
+    if (!form.email) errs.email = 'Email is required';
+    if (!form.password) errs.password = 'Password is required';
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    router.push('/college-dashboard');
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafb]">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        <Link href="/" className="flex items-center gap-2 mb-8 justify-center">
+          <div className="w-8 h-8 bg-[#2BC0B4] rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold">B</span>
+          </div>
+          <span className="text-xl font-bold text-[#1a1a2e]">Bridgix</span>
+        </Link>
+
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-[#e8faf9] rounded-full flex items-center justify-center mx-auto mb-3">
+            <span className="text-3xl">🏛️</span>
+          </div>
+          <h1 className="text-2xl font-bold text-[#1a1a2e]">College Admin Login</h1>
+          <p className="text-gray-500 text-sm mt-1">Access your institutional dashboard</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">College Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm({...form, email: e.target.value})}
+              placeholder="admin@college.edu.in"
+              className={`input-field ${errors.email ? 'border-red-400' : ''}`}
+            />
+            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <button type="button" className="text-xs text-[#2BC0B4] hover:underline">Forgot Password?</button>
+            </div>
+            <input
+              type="password"
+              value={form.password}
+              onChange={e => setForm({...form, password: e.target.value})}
+              placeholder="Enter your password"
+              className={`input-field ${errors.password ? 'border-red-400' : ''}`}
+            />
+            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+          </div>
+
+          <button type="submit" className="btn-primary w-full py-3">
+            Login to Dashboard
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-gray-500 mt-5">
+          Not registered yet?{' '}
+          <Link href="/register-college" className="text-[#2BC0B4] font-semibold hover:underline">Register College</Link>
+        </p>
+        <p className="text-center text-sm text-gray-500 mt-2">
+          Student or Alumni?{' '}
+          <Link href="/login" className="text-[#2BC0B4] font-semibold hover:underline">Login here</Link>
+        </p>
+      </div>
+    </div>
+  );
+}

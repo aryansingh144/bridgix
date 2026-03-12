@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --teal-primary: #2BC0B4;
+  --teal-secondary: #1a9e93;
+  --orange-accent: #FF8C42;
+  --bg: #f8fafb;
+  --card: #ffffff;
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b7280;
+}
+
+.dark {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#2BC0B4] hover:bg-[#1a9e93] text-white font-semibold py-2.5 px-5 rounded-lg transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-outline {
+    @apply border-2 border-[#2BC0B4] text-[#2BC0B4] hover:bg-[#2BC0B4] hover:text-white font-semibold py-2.5 px-5 rounded-lg transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-orange {
+    @apply bg-[#FF8C42] hover:bg-[#e67a30] text-white font-semibold py-2.5 px-5 rounded-lg transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4;
+  }
+
+  .input-field {
+    @apply w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2BC0B4] focus:border-transparent bg-white text-gray-900;
+  }
+
+  .nav-link {
+    @apply text-gray-600 hover:text-[#2BC0B4] font-medium transition-colors duration-150 cursor-pointer;
+  }
+
+  .nav-link-active {
+    @apply text-[#2BC0B4] font-semibold border-b-2 border-[#2BC0B4];
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-[#e8faf9] hover:text-[#2BC0B4] transition-all duration-150 cursor-pointer text-sm font-medium;
+  }
+
+  .sidebar-link-active {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#e8faf9] text-[#2BC0B4] font-semibold text-sm;
+  }
+
+  .tag {
+    @apply inline-block px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+}
+
+/* Dark mode overrides for component classes */
+.dark .card {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+.dark .input-field {
+  background-color: #1e293b;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.dark .input-field::placeholder {
+  color: #64748b;
+}
+
+.dark .input-field:focus {
+  border-color: #2BC0B4;
+  box-shadow: 0 0 0 2px rgba(43, 192, 180, 0.2);
+}
+
+.dark .nav-link {
+  color: #94a3b8;
+}
+
+.dark .nav-link:hover {
+  color: #2BC0B4;
+}
+
+.dark .sidebar-link {
+  color: #94a3b8;
+}
+
+.dark .sidebar-link:hover {
+  background-color: rgba(43, 192, 180, 0.1);
+  color: #2BC0B4;
+}
+
+.dark .sidebar-link-active {
+  background-color: rgba(43, 192, 180, 0.1);
+  color: #2BC0B4;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+::-webkit-scrollbar-thumb {
+  background: #2BC0B4;
+  border-radius: 10px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* Role switcher glow */
+.role-tab-active {
+  box-shadow: 0 0 0 2px #2BC0B4;
+}
