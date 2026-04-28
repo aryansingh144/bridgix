@@ -1,0 +1,11 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+python-dotenv==1.0.1
+
+# Inference runtime for trained models. Stays CPU-only — training happens
+# on Colab GPU and only the saved artifacts ship to the runtime.
+torch==2.4.1
+transformers==4.45.2
+xgboost==2.1.1
+numpy==1.26.4

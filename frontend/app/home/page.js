@@ -219,14 +219,17 @@ function HomePageInner() {
     fetchPosts();
   }, []);
 
+  const [moderationNotice, setModerationNotice] = useState(null);
+
   const handlePost = async (e) => {
     e.preventDefault();
     if (!newPost.trim()) return;
     setPosting(true);
+    const draft = newPost;
     const tempPost = {
       _id: 'temp-' + Date.now(),
       author: currentUser,
-      content: newPost,
+      content: draft,
       image: '',
       likes: [],
       comments: [],
@@ -235,9 +238,21 @@ function HomePageInner() {
     setDisplayPosts(prev => [tempPost, ...prev]);
     setNewPost('');
     setPosting(false);
+    setModerationNotice(null);
     try {
-      const res = await axios.post(`${API_URL}/api/posts`, { author: currentUser._id, content: newPost });
-      dispatch(addPost(res.data));
+      const res = await axios.post(`${API_URL}/api/posts`, { author: currentUser._id, content: draft });
+      const saved = res.data?.post || res.data;
+      const moderation = res.data?.moderation;
+      if (saved?._id) {
+        setDisplayPosts(prev => prev.map(p => (p._id === tempPost._id ? saved : p)));
+        dispatch(addPost(saved));
+      }
+      if (moderation?.flagged) {
+        setModerationNotice({
+          score: moderation.score,
+          reasons: moderation.reasons || []
+        });
+      }
     } catch (e) {}
   };
 
@@ -317,6 +332,28 @@ function HomePageInner() {
                     </form>
                   </div>
                 </div>
+
+                {moderationNotice && (
+                  <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 flex items-start gap-3">
+                    <span className="text-xl">🛡️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                        Your post was flagged ({Math.round((moderationNotice.score || 0) * 100)}% spam) and is awaiting review.
+                      </p>
+                      {moderationNotice.reasons?.length > 0 && (
+                        <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                          Reasons: {moderationNotice.reasons.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setModerationNotice(null)}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
 
                 {/* Posts */}
                 <div>

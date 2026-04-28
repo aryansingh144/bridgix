@@ -1,0 +1,7 @@
+# Additional packages needed only when training the models on Colab.
+# Runtime / inference does NOT need these.
+-r requirements.txt
+datasets==3.0.0
+scikit-learn==1.5.2
+pandas==2.2.3
+accelerate==0.34.2
