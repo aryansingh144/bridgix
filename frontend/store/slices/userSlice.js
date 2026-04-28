@@ -1,6 +1,9 @@
 'use client';
 import { createSlice } from '@reduxjs/toolkit';
 
+// Mock identities used for the role switcher. The `_id` values here are
+// placeholders — on app load we hydrate them from the backend so they map to
+// real seeded users (and real Mongo ObjectIds the API can persist against).
 const mockUsers = {
   student: {
     _id: 'mock-student-1',
@@ -57,6 +60,7 @@ const initialState = {
   activeRole: 'student',
   mockUsers,
   users: [],
+  hydrated: false,
   loading: false,
   error: null
 };
@@ -72,6 +76,37 @@ const userSlice = createSlice({
     setUsers: (state, action) => {
       state.users = action.payload;
     },
+    /**
+     * Replace mockUsers' placeholder _ids with real ObjectIds from the
+     * seeded backend, picking the first user of each role. Called once on
+     * app boot so chat / posts / discussion can persist against real users
+     * without needing real auth.
+     */
+    hydrateMockUsers: (state, action) => {
+      const real = action.payload || [];
+      const firstStudent = real.find(u => u.role === 'student');
+      const firstAlumni = real.find(u => u.role === 'alumni');
+
+      if (firstStudent) {
+        state.mockUsers.student = {
+          ...state.mockUsers.student,
+          ...firstStudent,
+          _id: firstStudent._id
+        };
+      }
+      if (firstAlumni) {
+        state.mockUsers.alumni = {
+          ...state.mockUsers.alumni,
+          ...firstAlumni,
+          _id: firstAlumni._id
+        };
+      }
+
+      // Refresh currentUser to point at the hydrated record for the active role.
+      state.currentUser = state.mockUsers[state.activeRole] || state.currentUser;
+      state.users = real;
+      state.hydrated = true;
+    },
     setLoading: (state, action) => {
       state.loading = action.payload;
     },
@@ -84,5 +119,12 @@ const userSlice = createSlice({
   }
 });
 
-export const { setActiveRole, setUsers, setLoading, setError, updateCurrentUser } = userSlice.actions;
+export const {
+  setActiveRole,
+  setUsers,
+  hydrateMockUsers,
+  setLoading,
+  setError,
+  updateCurrentUser
+} = userSlice.actions;
 export default userSlice.reducer;

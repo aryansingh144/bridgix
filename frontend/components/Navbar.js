@@ -90,6 +90,7 @@ function AppNavbar({ currentUser, pathname }) {
     { href: '/discussion', label: 'Discussion', icon: '💬' },
     { href: '/chat', label: 'Chats', icon: '✉️' },
     { href: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+    { href: '/moderation', label: 'Moderation', icon: '🛡️' },
   ];
 
   return (

@@ -10,6 +10,9 @@ const postSchema = new mongoose.Schema({
     text: { type: String },
     createdAt: { type: Date, default: Date.now }
   }],
+  flagged: { type: Boolean, default: false },
+  spamScore: { type: Number, default: 0 },
+  moderationStatus: { type: String, enum: ['clean', 'pending', 'approved', 'removed'], default: 'clean' },
   createdAt: { type: Date, default: Date.now }
 });
 

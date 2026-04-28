@@ -1,170 +1,179 @@
-# Bridgix — Alumni-Student Networking Platform
+# Bridgix — AI-Enhanced Alumni–Student Networking Platform
 
-Bridgix is a full-stack web application that connects alumni and students for mentorship, placement assistance, and career guidance.
+Full-stack platform connecting alumni and students for mentorship, placement assistance, and career guidance, with an **AI-driven hybrid spam-detection layer (BERT + GraphSAGE + XGBoost)** moderating every piece of user-generated content.
 
-## Tech Stack
+See [`Bridgix.md`](./Bridgix.md) for the project overview that mirrors the report.
 
-- **Frontend**: Next.js 14 (App Router), Tailwind CSS, Redux Toolkit
-- **Backend**: Express.js, MongoDB (local), Mongoose
-- **Charts**: Chart.js (react-chartjs-2)
-- **HTTP Client**: Axios
+## Stack
 
-## Project Structure
+| Layer | Tech |
+| --- | --- |
+| **Frontend** | Next.js 14 (App Router), Tailwind CSS, Redux Toolkit, Chart.js, Axios |
+| **Backend** | Express.js, MongoDB Atlas, Mongoose |
+| **ML service** | FastAPI (Python), HuggingFace Transformers, PyTorch, XGBoost, PyTorch Geometric |
+| **Models** | `bert-base-uncased` (fine-tuned on SMS Spam, 99.1% acc), XGBoost (98.3% acc), GraphSAGE (synthetic graph) |
+
+## Repo Layout
 
 ```
 bridgix/
-├── backend/          Express.js API server
-│   ├── models/       Mongoose models
-│   ├── routes/       API route handlers
-│   ├── server.js     Main server entry
-│   └── seed.js       Database seed script
-└── frontend/         Next.js 14 application
-    ├── app/          Pages (App Router)
-    ├── components/   Reusable components
-    └── store/        Redux store and slices
+├── backend/                Express API + Mongoose models
+│   ├── models/             User, Post, Message, Discussion, Connection, Event, College, Detection
+│   ├── routes/             users, posts, messages, discussions, connections, events,
+│   │                       leaderboard, colleges, moderation
+│   ├── services/spamClient.js   Calls the FastAPI ML service before persisting content
+│   ├── server.js
+│   ├── seed.js             Seed real users / posts / messages
+│   └── docs/spam-pipeline.md
+├── frontend/               Next.js 14 app
+│   ├── app/                pages (App Router) — home, chat, discussion, moderation, profile, …
+│   ├── components/         Navbar, Sidebar, PostCard, RoleSwitcher, ReduxProvider, …
+│   ├── store/              Redux slices (user, app)
+│   └── docs/moderation.md
+├── ml/                     FastAPI spam detection microservice
+│   ├── main.py             HTTP layer (POST /predict, GET /health)
+│   ├── ensemble.py         HybridSpamDetector (BERT · GraphSAGE · XGBoost weighted)
+│   ├── config.py / schemas.py
+│   ├── models/
+│   │   ├── bert/{predictor.py, saved/}
+│   │   ├── graphsage/{predictor.py, saved/}
+│   │   └── xgboost/{predictor.py, saved/}
+│   ├── training/           Colab-runnable scripts (train_bert.py, train_xgboost.py, train_graphsage.py)
+│   └── docs/{architecture.md, training.md}
+└── Bridgix.md              Project narrative (matches the report)
 ```
 
 ## Prerequisites
 
-- Node.js >= 18
-- MongoDB running locally on port 27017
+- Node.js ≥ 18
+- Python ≥ 3.10 (for the ML service)
+- A MongoDB Atlas cluster (free M0 tier works) or local MongoDB on `:27017`
 
-## Setup & Run
+## First-time Setup
 
-### 1. Install All Dependencies
+### 1. Install dependencies
 
 ```bash
-npm run install:all
+npm run install:all                 # backend + frontend
+cd ml && pip install -r requirements.txt
 ```
 
-Or manually:
-```bash
-cd backend && npm install
-cd ../frontend && npm install
-```
+### 2. Configure environments
 
-### 2. Configure Environment
-
-Backend (`backend/.env`):
+**`backend/.env`:**
 ```
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/bridgix
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/bridgix?retryWrites=true&w=majority
+
+# Spam detection microservice
+ML_SERVICE_URL=http://localhost:8000
+ML_TIMEOUT_MS=4000
+ML_FAIL_OPEN=true
 ```
 
-Frontend (`frontend/.env.local`):
+**`frontend/.env.local`:**
 ```
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
-### 3. Start MongoDB
-
-Make sure MongoDB is running:
-```bash
-mongod
+**`ml/.env`:**
 ```
-Or with Homebrew:
-```bash
-brew services start mongodb-community
+PORT=8000
+SPAM_THRESHOLD=0.5
+BERT_WEIGHT=0.5
+GRAPHSAGE_WEIGHT=0.2
+XGBOOST_WEIGHT=0.3
 ```
 
-### 4. Seed the Database
+### 3. Train (or download) the ML models
+
+The runtime predictors auto-load trained artifacts from `ml/models/<name>/saved/`. If absent they fall back to rule-based stubs so the pipeline still works end-to-end.
+
+To train on Colab (~7–10 min on a T4 GPU), follow [`ml/docs/training.md`](./ml/docs/training.md). Drop the resulting `saved/` folders into `ml/models/<name>/saved/`.
+
+### 4. Seed the database
 
 ```bash
-cd backend && npm run seed
+cd backend
+npm run seed
 ```
 
-This creates:
-- 8 users (4 students, 4 alumni) with realistic profiles
-- 10 posts
-- 6 discussion topics with replies
-- 20 messages between users
-- 3 events
-- 1 college
-- Connection requests
+Creates 8 users (4 students + 4 alumni), 1 college, 3 events, 10 posts, 6 discussions, 20 messages, 10 connections.
 
-### 5. Start the Servers
+## Running (3 terminals)
 
-**Backend** (Terminal 1):
 ```bash
-npm run dev:backend
-# Runs on http://localhost:5000
+# Terminal 1 — ML service
+cd ml && python main.py             # http://localhost:8000
+
+# Terminal 2 — Backend
+npm run dev:backend                 # http://localhost:5000
+
+# Terminal 3 — Frontend
+npm run dev:frontend                # http://localhost:3000
 ```
 
-**Frontend** (Terminal 2):
-```bash
-npm run dev:frontend
-# Runs on http://localhost:3000
+When everything is up the ML logs will show:
+
+```
+[bert] loaded fine-tuned model from .../models/bert/saved
+[xgb] loaded trained model from .../models/xgboost/saved/xgb.json
+[gs]  loaded trained model from .../models/graphsage/saved/model.pt    # (if torch_geometric installed)
 ```
 
-## Pages
+## How the Spam Detection Pipeline Works
+
+```
+client → POST /api/posts | /api/messages → Express route
+                                          ├─ gather behavioral context (account age, post frequency, …)
+                                          ├─ POST <ML_SERVICE_URL>/predict ──▶ FastAPI
+                                          │   ◀── { is_spam, score, label, reasons, per-model breakdown }
+                                          ├─ persist content with flagged / spamScore / moderationStatus
+                                          └─ insert Detection record (audit log + moderation queue source)
+```
+
+Visit `/moderation` for the admin queue, per-model score visualisation, and a live tester widget. Flagged posts and messages render with a red ring + spam-score badge in the regular feed/chat too. See [`backend/docs/spam-pipeline.md`](./backend/docs/spam-pipeline.md) and [`ml/docs/architecture.md`](./ml/docs/architecture.md) for details.
+
+## Key Pages
 
 | Route | Description |
-|-------|-------------|
-| `/` | Landing page with hero, events, values, testimonials |
-| `/signup` | User registration |
-| `/login` | User login |
-| `/register-college` | College registration |
-| `/college-login` | College admin login |
-| `/home` | Main feed with posts (Student/Alumni view) |
-| `/profile/[id]` | User profile (Student or Alumni view) |
-| `/chat` | Real-time messaging interface |
-| `/discussion` | Discussion forum with topics |
+| --- | --- |
+| `/` | Landing page |
+| `/login`, `/signup` | Auth (currently mocked — no password persistence yet) |
+| `/home` | Feed with posts, post-creation runs through spam detector |
+| `/chat` | DMs, polls every 5s, every send runs through spam detector |
+| `/discussion` | Discussion forum |
+| `/moderation` | Admin queue + live ML tester |
+| `/profile/[id]` | User profile |
 | `/leaderboard` | Points-based leaderboard |
-| `/events/[id]` | Event detail and registration |
-| `/college-dashboard` | College admin dashboard with charts |
+| `/college-dashboard` | College admin dashboard |
 
-## API Endpoints
+## Key API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/users` | Get all users |
-| GET | `/api/users/:id` | Get user by ID |
-| POST | `/api/users` | Create user |
-| PUT | `/api/users/:id` | Update user |
-| GET | `/api/posts` | Get all posts |
-| POST | `/api/posts` | Create post |
-| PUT | `/api/posts/:id/like` | Toggle like |
-| GET | `/api/discussions` | Get all discussions |
-| POST | `/api/discussions` | Create discussion |
-| GET | `/api/discussions/:id` | Get discussion |
-| POST | `/api/discussions/:id/reply` | Add reply |
-| GET | `/api/messages/:userId` | Get conversations |
-| POST | `/api/messages` | Send message |
-| GET | `/api/events` | Get all events |
-| GET | `/api/events/:id` | Get event detail |
-| GET | `/api/leaderboard` | Get leaderboard |
-| GET | `/api/connections/:userId` | Get connections |
-| POST | `/api/connections` | Send connection request |
+| Method | Endpoint | Notes |
+| --- | --- | --- |
+| GET / POST / PUT | `/api/users` | CRUD |
+| GET / POST | `/api/posts` | POST runs spam detector; GET hides removed |
+| PUT | `/api/posts/:id/like`, `POST /api/posts/:id/comment` | |
+| GET / POST | `/api/messages`, `/api/messages/:userId`, `/api/messages/:userId/:otherId` | POST runs spam detector |
+| GET / POST | `/api/discussions`, `/api/discussions/:id`, `/api/discussions/:id/reply` | |
+| GET / POST | `/api/events`, `/api/connections`, `/api/leaderboard`, `/api/colleges` | |
+| GET | `/api/moderation`, `/api/moderation/stats` | Admin queue + counters |
+| POST | `/api/moderation/classify` | Ad-hoc text classification (used by tester widget) |
+| PUT | `/api/moderation/:id` | `{ decision: 'approve' \| 'remove', reviewerId }` |
 
 ## Role Switcher
 
-The app includes a sticky **Role Switcher** at the top of all app pages. Click any role tab to switch the view:
-- **Student** — See student-focused UI with skill needs, academic support
-- **Alumni** — See alumni-focused UI with services, work experience
-- **College** — See college admin dashboard
+A sticky role switcher at the top of in-app pages lets you flip the active identity (Student / Alumni / College) without auth. On boot the frontend hydrates the mock identities to the first seeded student (Aryan Singh) and first seeded alumni (Mohit Singh) so backend writes go against real Mongo ObjectIds.
 
-This is for demo purposes — no real authentication required.
+## Development Status
 
-## Color Scheme
+- ✅ Frontend, backend, ML service all running end-to-end
+- ✅ Spam detection pipeline live across `/home` and `/chat`
+- ✅ BERT (99.1%) and XGBoost (98.3%) trained on SMS Spam Collection
+- ⚠️ GraphSAGE trained on a synthetic graph (replace with real interaction data later)
+- 🔜 Real auth (bcrypt + JWT)
+- 🔜 Discussion ↔ backend wiring (currently uses mock data)
+- 🔜 Profile editing + resume upload
 
-| Token | Value |
-|-------|-------|
-| Primary Teal | `#2BC0B4` |
-| Secondary Teal | `#1a9e93` |
-| Accent Orange | `#FF8C42` |
-| Background | `#f8fafb` |
-| Card | `#ffffff` |
-| Text | `#1a1a2e` |
-
-## Seed Data Users
-
-| Name | Role | Points |
-|------|------|--------|
-| Aryan Singh | Student (IIT Delhi) | 105 |
-| Adarsh | Student (IIT Kanpur) | 86 |
-| Mohit Singh | Alumni (Google) | 72 |
-| Shivansh Sharma | Alumni (Razorpay) | 61 |
-| Dhruv Baliyan | Student (NSIT Delhi) | 55 |
-| Rajat Kumar | Student (Univ. Rajasthan) | 44 |
-| Paresh Talwa | Alumni (Flipkart) | 38 |
-| Ritwik Jadeja | Alumni (TechBridge) | 29 |
+See [`Bridgix.md`](./Bridgix.md) for the full project narrative.

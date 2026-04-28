@@ -84,6 +84,12 @@ export default function PostCard({ post }) {
           <p className="text-xs text-gray-400 dark:text-gray-500">
             {author.occupation || author.education || author.yearOfStudy} &bull; {timeAgo(localPost.createdAt)}
           </p>
+          {localPost.flagged && localPost.moderationStatus !== 'approved' && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold mt-1 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 7a1 1 0 012 0v3a1 1 0 11-2 0V7zm1 7a1 1 0 100-2 1 1 0 000 2z"/></svg>
+              Flagged · {Math.round((localPost.spamScore || 0) * 100)}% spam
+            </span>
+          )}
         </div>
         <button className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
