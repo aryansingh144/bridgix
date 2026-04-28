@@ -61,6 +61,8 @@ const initialState = {
   mockUsers,
   users: [],
   hydrated: false,
+  authUser: null,            // populated when a real session is active
+  isAuthenticated: false,
   loading: false,
   error: null
 };
@@ -70,8 +72,26 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     setActiveRole: (state, action) => {
+      // Role switcher only affects the demo session — real authenticated users
+      // shouldn't be silently swapped out.
       state.activeRole = action.payload;
-      state.currentUser = state.mockUsers[action.payload];
+      if (!state.isAuthenticated) {
+        state.currentUser = state.mockUsers[action.payload];
+      }
+    },
+    setAuth: (state, action) => {
+      const user = action.payload?.user || action.payload;
+      state.authUser = user || null;
+      state.isAuthenticated = !!user;
+      if (user) {
+        state.currentUser = user;
+        state.activeRole = user.role || state.activeRole;
+      }
+    },
+    clearAuth: (state) => {
+      state.authUser = null;
+      state.isAuthenticated = false;
+      state.currentUser = state.mockUsers[state.activeRole] || state.mockUsers.student;
     },
     setUsers: (state, action) => {
       state.users = action.payload;
@@ -123,6 +143,8 @@ export const {
   setActiveRole,
   setUsers,
   hydrateMockUsers,
+  setAuth,
+  clearAuth,
   setLoading,
   setError,
   updateCurrentUser

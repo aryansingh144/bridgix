@@ -7,6 +7,10 @@ const Discussion = require('./models/Discussion');
 const Message = require('./models/Message');
 const Event = require('./models/Event');
 const Connection = require('./models/Connection');
+const Detection = require('./models/Detection');
+const { hashPassword } = require('./services/auth');
+
+const DEFAULT_PASSWORD = 'password123';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bridgix';
 
@@ -29,9 +33,12 @@ async function seed() {
     Discussion.deleteMany({}),
     Message.deleteMany({}),
     Event.deleteMany({}),
-    Connection.deleteMany({})
+    Connection.deleteMany({}),
+    Detection.deleteMany({})
   ]);
   console.log('Cleared existing data');
+
+  const defaultPasswordHash = await hashPassword(DEFAULT_PASSWORD);
 
   // Create users
   const usersData = [
@@ -179,9 +186,10 @@ async function seed() {
 
   const users = await User.insertMany(usersData.map((u, i) => ({
     ...u,
-    avatar: generateAvatar(u.name, i)
+    avatar: generateAvatar(u.name, i),
+    passwordHash: defaultPasswordHash
   })));
-  console.log('Users created:', users.length);
+  console.log(`Users created: ${users.length} (default password: "${DEFAULT_PASSWORD}")`);
 
   const [aryan, dhruv, suprapti, rajat, mohit, paresh, ritwik, shivansh] = users;
 

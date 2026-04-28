@@ -42,6 +42,29 @@ async function gatherMessageContext(senderId, content) {
   });
 }
 
+async function gatherDiscussionContext(authorId, content) {
+  const Discussion = require('../models/Discussion');
+  const User = require('../models/User');
+  const user = authorId ? await User.findById(authorId).select('createdAt').lean() : null;
+  const accountAgeDays = user?.createdAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(user.createdAt).getTime()) / 86400000))
+    : 365;
+
+  const oneHourAgo = new Date(Date.now() - 3600 * 1000);
+  const oneDayAgo = new Date(Date.now() - 86400 * 1000);
+  const [postsLastHour, postsLastDay] = await Promise.all([
+    Discussion.countDocuments({ author: authorId, createdAt: { $gte: oneHourAgo } }),
+    Discussion.countDocuments({ author: authorId, createdAt: { $gte: oneDayAgo } })
+  ]);
+
+  return buildBehavioral({
+    accountAgeDays,
+    postsLastHour,
+    postsLastDay,
+    avgMessageLength: content?.length || 0
+  });
+}
+
 async function gatherPostContext(authorId, content) {
   const User = require('../models/User');
   const user = authorId ? await User.findById(authorId).select('createdAt').lean() : null;
@@ -117,5 +140,6 @@ module.exports = {
   classify,
   logDetection,
   gatherMessageContext,
-  gatherPostContext
+  gatherPostContext,
+  gatherDiscussionContext
 };

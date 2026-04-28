@@ -1,9 +1,11 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useTheme } from './ThemeProvider';
+import { clearAuth } from '../store/slices/userSlice';
+import { TOKEN_KEY } from '../lib/api';
 
 function DarkToggle() {
   const { dark, toggle } = useTheme();
@@ -82,8 +84,19 @@ export default function Navbar({ type = 'landing' }) {
 
 function AppNavbar({ currentUser, pathname }) {
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { notifications } = useSelector(state => state.app);
+  const { isAuthenticated } = useSelector(state => state.user);
+  const dispatch = useDispatch();
+  const router = useRouter();
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') window.localStorage.removeItem(TOKEN_KEY);
+    dispatch(clearAuth());
+    setProfileOpen(false);
+    router.push('/login');
+  };
 
   const navItems = [
     { href: '/home', label: 'Home', icon: '🏠' },
@@ -155,13 +168,58 @@ function AppNavbar({ currentUser, pathname }) {
             )}
           </div>
 
-          <Link href={`/profile/me`} className="flex items-center gap-2">
-            <img
-              src={currentUser?.avatar || `https://ui-avatars.com/api/?name=${currentUser?.name}&background=2BC0B4&color=fff`}
-              alt={currentUser?.name}
-              className="w-9 h-9 rounded-full object-cover border-2 border-[#2BC0B4]"
-            />
-          </Link>
+          <div className="relative">
+            <button
+              onClick={() => setProfileOpen(o => !o)}
+              className="flex items-center gap-2"
+              title={currentUser?.name}
+            >
+              <img
+                src={currentUser?.avatar || `https://ui-avatars.com/api/?name=${currentUser?.name}&background=2BC0B4&color=fff`}
+                alt={currentUser?.name}
+                className="w-9 h-9 rounded-full object-cover border-2 border-[#2BC0B4]"
+              />
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 top-11 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                  <p className="text-sm font-semibold text-[#1a1a2e] dark:text-gray-100 truncate">
+                    {currentUser?.name}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                    {currentUser?.email || currentUser?.role}
+                  </p>
+                  {!isAuthenticated && (
+                    <p className="text-[10px] text-[#FF8C42] mt-1 font-medium">Demo session — not signed in</p>
+                  )}
+                </div>
+                <Link
+                  href={`/profile/${currentUser?._id || 'me'}`}
+                  onClick={() => setProfileOpen(false)}
+                  className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                >
+                  View profile
+                </Link>
+                {isAuthenticated ? (
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    Logout
+                  </button>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-4 py-2 text-sm text-[#2BC0B4] font-semibold hover:bg-[#e8faf9] dark:hover:bg-teal-900/20"
+                  >
+                    Sign in
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </nav>

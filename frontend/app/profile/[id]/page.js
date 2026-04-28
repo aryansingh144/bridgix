@@ -1,11 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useParams } from 'next/navigation';
 import Navbar from '../../../components/Navbar';
 import RoleSwitcher from '../../../components/RoleSwitcher';
 import Link from 'next/link';
 import axios from 'axios';
+import api from '../../../lib/api';
+import { updateCurrentUser } from '../../../store/slices/userSlice';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -59,10 +61,15 @@ const mockConnections = [
 
 export default function ProfilePage() {
   const { id } = useParams();
+  const dispatch = useDispatch();
   const { currentUser, activeRole } = useSelector(state => state.user);
   const [profile, setProfile] = useState(null);
   const [connected, setConnected] = useState(false);
   const [activeTab, setActiveTab] = useState('about');
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -79,6 +86,62 @@ export default function ProfilePage() {
     };
     fetchProfile();
   }, [id, activeRole]);
+
+  const openEdit = () => {
+    setEditForm({
+      name: profile.name || '',
+      bio: profile.bio || '',
+      location: profile.location || '',
+      education: profile.education || '',
+      occupation: profile.occupation || '',
+      yearOfStudy: profile.yearOfStudy || '',
+      college: profile.college || '',
+      topSkills: (profile.topSkills || []).join(', '),
+      skills: (profile.skills || []).join(', '),
+      services: (profile.services || []).join(', '),
+      coreNeeds: (profile.coreNeeds || []).join(', '),
+      quote: profile.quote || ''
+    });
+    setEditError(null);
+    setEditing(true);
+  };
+
+  const csvToArray = (s) => (s ? s.split(',').map(t => t.trim()).filter(Boolean) : []);
+
+  const saveEdit = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setEditError(null);
+    try {
+      const userId = currentUser?._id;
+      if (!userId || String(userId).startsWith('mock-')) {
+        throw new Error('Saving requires a real user (sign in or seed the database).');
+      }
+      const payload = {
+        name: editForm.name,
+        bio: editForm.bio,
+        location: editForm.location,
+        education: editForm.education,
+        occupation: editForm.occupation,
+        yearOfStudy: editForm.yearOfStudy,
+        college: editForm.college,
+        topSkills: csvToArray(editForm.topSkills),
+        skills: csvToArray(editForm.skills),
+        services: csvToArray(editForm.services),
+        coreNeeds: csvToArray(editForm.coreNeeds),
+        quote: editForm.quote
+      };
+      const { data } = await api.put(`/api/users/${userId}`, payload);
+      setProfile(data);
+      dispatch(updateCurrentUser(data));
+      setEditing(false);
+    } catch (err) {
+      setEditError(err.response?.data?.error || err.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!profile) return (
     <div className="min-h-screen bg-[#f8fafb] dark:bg-gray-950">
@@ -161,7 +224,7 @@ export default function ProfilePage() {
                     {profile.role === 'alumni' && (
                       <button className="w-full btn-primary text-sm py-2">📝 New Note</button>
                     )}
-                    <button className="w-full btn-outline text-sm py-2">✏️ Edit Profile</button>
+                    <button onClick={openEdit} className="w-full btn-outline text-sm py-2">✏️ Edit Profile</button>
                   </>
                 ) : (
                   <>
@@ -345,6 +408,148 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {editing && editForm && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+              <h3 className="font-bold text-[#1a1a2e] dark:text-gray-100">Edit profile</h3>
+              <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
+            </div>
+
+            <form onSubmit={saveEdit} className="px-5 py-4 space-y-3">
+              {editError && (
+                <div className="p-2 rounded bg-red-50 border border-red-200 text-xs text-red-700">{editError}</div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Full name</label>
+                  <input
+                    value={editForm.name}
+                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Location</label>
+                  <input
+                    value={editForm.location}
+                    onChange={e => setEditForm({ ...editForm, location: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Bio</label>
+                <textarea
+                  value={editForm.bio}
+                  onChange={e => setEditForm({ ...editForm, bio: e.target.value })}
+                  className="input-field text-sm resize-none"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Education</label>
+                  <input
+                    value={editForm.education}
+                    onChange={e => setEditForm({ ...editForm, education: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">College</label>
+                  <input
+                    value={editForm.college}
+                    onChange={e => setEditForm({ ...editForm, college: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+              </div>
+
+              {profile.role === 'student' ? (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Year of study</label>
+                  <input
+                    value={editForm.yearOfStudy}
+                    onChange={e => setEditForm({ ...editForm, yearOfStudy: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Occupation</label>
+                  <input
+                    value={editForm.occupation}
+                    onChange={e => setEditForm({ ...editForm, occupation: e.target.value })}
+                    className="input-field text-sm"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Top skills (comma separated)</label>
+                <input
+                  value={editForm.topSkills}
+                  onChange={e => setEditForm({ ...editForm, topSkills: e.target.value })}
+                  className="input-field text-sm"
+                  placeholder="React, Node.js, Python"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">All skills</label>
+                <input
+                  value={editForm.skills}
+                  onChange={e => setEditForm({ ...editForm, skills: e.target.value })}
+                  className="input-field text-sm"
+                />
+              </div>
+
+              {profile.role === 'student' ? (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Core needs</label>
+                  <input
+                    value={editForm.coreNeeds}
+                    onChange={e => setEditForm({ ...editForm, coreNeeds: e.target.value })}
+                    className="input-field text-sm"
+                    placeholder="Mentorship, Internship Opportunities, …"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Services offered</label>
+                  <input
+                    value={editForm.services}
+                    onChange={e => setEditForm({ ...editForm, services: e.target.value })}
+                    className="input-field text-sm"
+                    placeholder="Mock Interviews, Resume Review, …"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Quote</label>
+                <input
+                  value={editForm.quote}
+                  onChange={e => setEditForm({ ...editForm, quote: e.target.value })}
+                  className="input-field text-sm"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setEditing(false)} className="btn-outline text-sm">Cancel</button>
+                <button type="submit" disabled={saving} className="btn-primary text-sm disabled:opacity-50">
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

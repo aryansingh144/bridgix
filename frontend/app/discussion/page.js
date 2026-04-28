@@ -138,6 +138,8 @@ function DiscussionPageInner() {
   const [showNewTopic, setShowNewTopic] = useState(false);
   const [newTopic, setNewTopic] = useState({ title: '', content: '', category: 'General', tags: '' });
   const [activeTag, setActiveTag] = useState(null);
+  const [moderationNotice, setModerationNotice] = useState(null);
+  const [posting, setPosting] = useState(false);
 
   // Sync panel view when URL type changes
   useEffect(() => {
@@ -159,24 +161,53 @@ function DiscussionPageInner() {
     fetchDiscussions();
   }, []);
 
-  const handleCreateTopic = (e) => {
+  const handleCreateTopic = async (e) => {
     e.preventDefault();
-    if (!newTopic.title.trim()) return;
-    const topic = {
+    if (!newTopic.title.trim() || posting) return;
+    setPosting(true);
+    setModerationNotice(null);
+    const draft = newTopic;
+    const optimistic = {
       _id: 'temp-' + Date.now(),
-      title: newTopic.title,
+      title: draft.title,
       author: currentUser,
-      category: newTopic.category,
-      content: newTopic.content,
+      category: draft.category,
+      content: draft.content,
       replies: [],
       views: 0,
-      tags: newTopic.tags.split(',').map(t => t.trim()),
+      tags: draft.tags.split(',').map(t => t.trim()).filter(Boolean),
       createdAt: new Date().toISOString()
     };
-    setDisplayDiscussions(prev => [topic, ...prev]);
-    dispatch(addDiscussion(topic));
+    setDisplayDiscussions(prev => [optimistic, ...prev]);
     setNewTopic({ title: '', content: '', category: 'General', tags: '' });
     setShowNewTopic(false);
+
+    try {
+      const res = await axios.post(`${API_URL}/api/discussions`, {
+        author: currentUser._id,
+        title: draft.title,
+        category: draft.category,
+        content: draft.content,
+        tags: optimistic.tags
+      });
+      const saved = res.data?.discussion || res.data;
+      const moderation = res.data?.moderation;
+      if (saved?._id) {
+        setDisplayDiscussions(prev => prev.map(d => (d._id === optimistic._id ? saved : d)));
+        dispatch(addDiscussion(saved));
+      }
+      if (moderation?.flagged) {
+        setModerationNotice({
+          score: moderation.score,
+          reasons: moderation.reasons || []
+        });
+      }
+    } catch (err) {
+      setDisplayDiscussions(prev => prev.filter(d => d._id !== optimistic._id));
+      setModerationNotice({ error: err.response?.data?.error || err.message });
+    } finally {
+      setPosting(false);
+    }
   };
 
   const timeAgo = (date) => {
@@ -316,6 +347,34 @@ function DiscussionPageInner() {
               </div>
             )}
 
+            {moderationNotice && (
+              <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 flex items-start gap-3">
+                <span className="text-xl">🛡️</span>
+                <div className="flex-1 text-sm">
+                  {moderationNotice.error ? (
+                    <p className="text-red-700 dark:text-red-400">{moderationNotice.error}</p>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-red-700 dark:text-red-400">
+                        Your topic was flagged ({Math.round((moderationNotice.score || 0) * 100)}% spam) and is awaiting review.
+                      </p>
+                      {moderationNotice.reasons?.length > 0 && (
+                        <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                          Reasons: {moderationNotice.reasons.join(', ')}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={() => setModerationNotice(null)}
+                  className="text-red-500 hover:text-red-700 text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="flex items-center gap-1 mb-4 bg-white dark:bg-gray-800 rounded-lg p-1 border border-gray-100 dark:border-gray-700 w-fit">
               {['Latest', 'Unread', 'Top'].map(tab => (
@@ -354,6 +413,11 @@ function DiscussionPageInner() {
                         <div className="flex items-center gap-1.5 mb-0.5">
                           {disc.type === 'panel' && (
                             <span className="text-xs px-1.5 py-0.5 bg-[#6C63FF]/10 text-[#6C63FF] rounded font-medium flex-shrink-0">Panel</span>
+                          )}
+                          {disc.flagged && disc.moderationStatus !== 'approved' && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded font-medium flex-shrink-0">
+                              ⚠️ flagged · {Math.round((disc.spamScore || 0) * 100)}%
+                            </span>
                           )}
                           <h4 className="text-sm font-semibold text-[#1a1a2e] dark:text-gray-100 hover:text-[#2BC0B4] line-clamp-1">{disc.title}</h4>
                         </div>

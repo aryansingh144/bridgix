@@ -13,6 +13,9 @@ const discussionSchema = new mongoose.Schema({
   }],
   views: { type: Number, default: 0 },
   tags: [{ type: String }],
+  flagged: { type: Boolean, default: false },
+  spamScore: { type: Number, default: 0 },
+  moderationStatus: { type: String, enum: ['clean', 'pending', 'approved', 'removed'], default: 'clean' },
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -1,8 +1,9 @@
 {
-  "/page": "app/page.js",
   "/home/page": "app/home/page.js",
   "/profile/[id]/page": "app/profile/[id]/page.js",
-  "/login/page": "app/login/page.js",
+  "/leaderboard/page": "app/leaderboard/page.js",
+  "/chat/page": "app/chat/page.js",
+  "/moderation/page": "app/moderation/page.js",
   "/discussion/page": "app/discussion/page.js",
-  "/chat/page": "app/chat/page.js"
+  "/login/page": "app/login/page.js"
 }

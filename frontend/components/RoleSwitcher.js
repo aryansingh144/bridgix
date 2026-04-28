@@ -10,7 +10,11 @@ const roles = [
 
 export default function RoleSwitcher() {
   const dispatch = useDispatch();
-  const { activeRole } = useSelector(state => state.user);
+  const { activeRole, isAuthenticated } = useSelector(state => state.user);
+
+  // When the user is signed in with a real account, the role switcher is
+  // a confusing no-op — hide it.
+  if (isAuthenticated) return null;
 
   return (
     <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm sticky top-0 z-50">
