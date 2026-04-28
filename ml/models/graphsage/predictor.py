@@ -1,9 +1,8 @@
 """GraphSAGE predictor — relational / network spam signal.
 
-Loads a trained GraphSAGE node classifier from `models/graphsage/saved/model.pt`
-when present. The trained model expects a 4-dim node feature vector and
-returns P(spam) for that node. We construct the feature vector from the
-GraphFeatures input.
+Loads a trained GraphSAGE node classifier from
+`models/graphsage/saved/model.pt` when present. The trained model expects a
+4-dim node feature vector and returns P(spam) for that node.
 
 Falls back to a rule-based stub if no trained model is available, or if no
 graph features are supplied at inference time.
@@ -65,7 +64,7 @@ class GraphSagePredictor:
         import torch.nn.functional as F
         from torch_geometric.nn import SAGEConv
 
-        ckpt = torch.load(MODEL_PATH, map_location="cpu")
+        ckpt = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
         cfg = ckpt["config"]
 
         class SAGE(torch.nn.Module):
@@ -83,7 +82,6 @@ class GraphSagePredictor:
         self.model.eval()
         self._cfg = cfg
 
-    # ── Inference ───────────────────────────────────────────────────────────
     def predict(self, graph: Optional[GraphFeatures]) -> ComponentScore:
         if graph is None:
             return ComponentScore(score=0.0)
@@ -96,8 +94,6 @@ class GraphSagePredictor:
         import torch.nn.functional as F
 
         x = torch.tensor([_build_feature_vector(graph)], dtype=torch.float)
-        # Self-loop only — single-node inference. The trained model still
-        # uses its node-feature-conditioned weights to score this node.
         edge_index = torch.tensor([[0], [0]], dtype=torch.long)
         with torch.no_grad():
             logits = self.model(x, edge_index)

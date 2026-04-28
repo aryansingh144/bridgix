@@ -45,7 +45,7 @@ class BertPredictor:
 
         if os.path.isdir(SAVED_DIR) and os.path.exists(os.path.join(SAVED_DIR, "config.json")):
             try:
-                import torch  # noqa: F401  (ensures torch is available)
+                import torch  # noqa: F401
                 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
                 self.tokenizer = AutoTokenizer.from_pretrained(SAVED_DIR)
@@ -60,7 +60,6 @@ class BertPredictor:
         else:
             print(f"[bert] no trained weights at {SAVED_DIR}; using rule-based stub")
 
-    # ── Inference ───────────────────────────────────────────────────────────
     def predict(self, text: str) -> ComponentScore:
         if not text:
             return ComponentScore(score=0.0)

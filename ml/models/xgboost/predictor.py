@@ -1,14 +1,7 @@
 """XGBoost predictor — behavioral / structured spam signal.
 
 Loads a trained xgb.Booster from `models/xgboost/saved/xgb.json`. Falls back
-to a rule-based stub if no trained model is present, so the pipeline keeps
-working end-to-end during development.
-
-At training time we only have text-derived behavioral proxies (length,
-digit ratio, URL count, …) because public datasets don't ship per-account
-behavior. At inference, real account-level behavioral features are appended
-when available (via the BehavioralFeatures input) so the model picks them up
-once they're populated.
+to a rule-based stub if no trained model is present.
 """
 
 from __future__ import annotations
@@ -95,7 +88,6 @@ class XgboostPredictor:
         else:
             print(f"[xgb] no trained model at {MODEL_PATH}; using rule-based stub")
 
-    # ── Inference ───────────────────────────────────────────────────────────
     def predict(
         self, behavioral: Optional[BehavioralFeatures], text: str
     ) -> ComponentScore:
