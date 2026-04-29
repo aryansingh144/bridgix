@@ -122,8 +122,11 @@ const userSlice = createSlice({
         };
       }
 
-      // Refresh currentUser to point at the hydrated record for the active role.
-      state.currentUser = state.mockUsers[state.activeRole] || state.currentUser;
+      // Only refresh currentUser when not signed in — otherwise we'd clobber
+      // the real authenticated user with a hydrated mock identity.
+      if (!state.isAuthenticated) {
+        state.currentUser = state.mockUsers[state.activeRole] || state.currentUser;
+      }
       state.users = real;
       state.hydrated = true;
     },

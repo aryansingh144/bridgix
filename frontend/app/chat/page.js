@@ -70,13 +70,17 @@ export default function ChatPage() {
     [allMessages, currentUser?._id]
   );
 
-  // Choose people the current user hasn't messaged yet, for the "Connect with More" panel.
-  const suggestions = useMemo(() => {
+  // Build a unified people list: existing conversations first (most recent at top),
+  // then every other user from the directory you haven't messaged yet. Both share
+  // the same row shape so the left panel can render them uniformly.
+  const peopleList = useMemo(() => {
+    if (!currentUser?._id) return [];
     const conversationIds = new Set(conversations.map(c => String(c.otherId)));
-    return (users || [])
-      .filter(u => String(u._id) !== String(currentUser?._id) && !conversationIds.has(String(u._id)))
-      .slice(0, 4);
-  }, [users, conversations, currentUser?._id]);
+    const others = (users || [])
+      .filter(u => String(u._id) !== String(currentUser._id) && !conversationIds.has(String(u._id)))
+      .map(u => ({ otherId: String(u._id), user: u, lastMessage: null, unread: 0 }));
+    return [...conversations, ...others];
+  }, [conversations, users, currentUser?._id]);
 
   const fetchMessages = async () => {
     if (!currentUser?._id) return;
@@ -96,15 +100,15 @@ export default function ChatPage() {
     // eslint-disable-next-line
   }, [hydrated, currentUser?._id]);
 
-  // Default-select the first conversation, or first suggested user if no convs yet.
+  // Default-select the first conversation, or first person in the list if no convs yet.
   useEffect(() => {
     if (activeOtherId) return;
     if (conversations.length > 0) {
       setActiveOtherId(conversations[0].otherId);
-    } else if (suggestions.length > 0) {
-      setActiveOtherId(String(suggestions[0]._id));
+    } else if (peopleList.length > 0) {
+      setActiveOtherId(peopleList[0].otherId);
     }
-  }, [conversations, suggestions, activeOtherId]);
+  }, [conversations, peopleList, activeOtherId]);
 
   const activeMessages = useMemo(() => {
     if (!activeOtherId || !currentUser?._id) return [];
@@ -172,9 +176,11 @@ export default function ChatPage() {
     }
   };
 
-  const filteredConvs = conversations.filter(c =>
-    (c.user?.name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredPeople = peopleList.filter(p => {
+    if (tab === 'Students' && p.user?.role !== 'student') return false;
+    if (tab === 'Alumni' && p.user?.role !== 'alumni') return false;
+    return (p.user?.name || '').toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <div className="min-h-screen bg-[#f8fafb] dark:bg-gray-950">
@@ -200,7 +206,7 @@ export default function ChatPage() {
                 </svg>
               </div>
               <div className="flex gap-1 mt-3">
-                {['All', 'Groups', 'Contacts'].map(t => (
+                {['All', 'Students', 'Alumni'].map(t => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
@@ -217,51 +223,56 @@ export default function ChatPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {filteredConvs.length === 0 && (
+              {filteredPeople.length === 0 && (
                 <div className="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
-                  No conversations yet. Pick someone from "Connect with More" on the right.
+                  No one matches that filter.
                 </div>
               )}
-              {filteredConvs.map(conv => (
-                <div
-                  key={conv.otherId}
-                  onClick={() => setActiveOtherId(conv.otherId)}
-                  className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
-                    activeOtherId === conv.otherId
-                      ? 'bg-[#e8faf9] dark:bg-teal-900/20'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
-                  }`}
-                >
-                  <div className="relative flex-shrink-0">
-                    <img
-                      src={conv.user?.avatar || `https://ui-avatars.com/api/?name=${conv.user?.name || 'U'}&background=2BC0B4&color=fff`}
-                      alt={conv.user?.name}
-                      className="w-11 h-11 rounded-full"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-[#1a1a2e] dark:text-gray-100 truncate">
-                        {conv.user?.name}
-                      </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-1">
-                        {timeAgo(conv.lastMessage?.createdAt)}
-                      </span>
+              {filteredPeople.map(p => {
+                const subtitle = p.lastMessage
+                  ? p.lastMessage.content
+                  : (p.user?.occupation || p.user?.education || p.user?.role);
+                return (
+                  <div
+                    key={p.otherId}
+                    onClick={() => setActiveOtherId(p.otherId)}
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${
+                      activeOtherId === p.otherId
+                        ? 'bg-[#e8faf9] dark:bg-teal-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                    }`}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={p.user?.avatar || `https://ui-avatars.com/api/?name=${p.user?.name || 'U'}&background=2BC0B4&color=fff`}
+                        alt={p.user?.name}
+                        className="w-11 h-11 rounded-full"
+                      />
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {conv.lastMessage?.flagged && (
-                        <span className="text-red-500 font-semibold mr-1">⚠️ flagged</span>
-                      )}
-                      {conv.lastMessage?.content}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-[#1a1a2e] dark:text-gray-100 truncate">
+                          {p.user?.name}
+                        </span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-1">
+                          {p.lastMessage ? timeAgo(p.lastMessage.createdAt) : ''}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {p.lastMessage?.flagged && (
+                          <span className="text-red-500 font-semibold mr-1">⚠️ flagged</span>
+                        )}
+                        {subtitle}
+                      </p>
+                    </div>
+                    {p.unread > 0 && (
+                      <span className="w-5 h-5 bg-[#2BC0B4] text-white text-xs rounded-full flex items-center justify-center flex-shrink-0 font-bold">
+                        {p.unread}
+                      </span>
+                    )}
                   </div>
-                  {conv.unread > 0 && (
-                    <span className="w-5 h-5 bg-[#2BC0B4] text-white text-xs rounded-full flex items-center justify-center flex-shrink-0 font-bold">
-                      {conv.unread}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -388,41 +399,8 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Right - Suggestions */}
+          {/* Right - Group Chats (decorative for the demo) */}
           <div className="w-60 space-y-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
-              <h3 className="font-semibold text-[#1a1a2e] dark:text-gray-100 text-sm mb-3">Connect with More</h3>
-              {suggestions.length === 0 ? (
-                <p className="text-xs text-gray-400 dark:text-gray-500">No more suggestions.</p>
-              ) : (
-                <div className="space-y-3">
-                  {suggestions.map(s => (
-                    <div key={s._id} className="flex items-center gap-2">
-                      <img
-                        src={s.avatar || `https://ui-avatars.com/api/?name=${s.name}&background=2BC0B4&color=fff`}
-                        alt={s.name}
-                        className="w-9 h-9 rounded-full flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-[#1a1a2e] dark:text-gray-100 truncate">
-                          {s.name}
-                        </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                          {s.occupation || s.education || s.role}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setActiveOtherId(String(s._id))}
-                        className="text-xs text-[#2BC0B4] font-semibold hover:underline flex-shrink-0"
-                      >
-                        Chat
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
               <h3 className="font-semibold text-[#1a1a2e] dark:text-gray-100 text-sm mb-3">Group Chats</h3>
               {[
