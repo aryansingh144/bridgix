@@ -43,10 +43,20 @@ export default function LeaderboardPage() {
     fetchLeaderboard();
   }, []);
 
-  const filtered = leaderboard.filter(u =>
-    u.name?.toLowerCase().includes(search.toLowerCase()) ||
-    u.college?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Strict college isolation: a signed-in user only sees peers from their
+  // own college. (Spreading scores across institutions defeats the
+  // intra-college mentorship narrative.)
+  const myCollege = currentUser?.college;
+  const isolated = myCollege
+    ? leaderboard.filter(u => u.college === myCollege)
+    : leaderboard;
+
+  const filtered = isolated
+    .map((u, i) => ({ ...u, rank: i + 1 }))         // re-rank inside the cohort
+    .filter(u =>
+      u.name?.toLowerCase().includes(search.toLowerCase()) ||
+      u.college?.toLowerCase().includes(search.toLowerCase())
+    );
 
   const top3 = filtered.slice(0, 3);
   const rest = filtered.slice(3);
@@ -73,7 +83,9 @@ export default function LeaderboardPage() {
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-[#1a1a2e] dark:text-gray-100">Leaderboard</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Top contributors across the Bridgix network</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            {myCollege ? `Top contributors at ${myCollege}` : 'Top contributors across the Bridgix network'}
+          </p>
         </div>
 
         {/* Tabs */}

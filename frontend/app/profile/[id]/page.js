@@ -52,28 +52,48 @@ const mockAlumniProfile = {
   connections: []
 };
 
-const mockConnections = [
-  { _id: 'u1', name: 'Mohit Singh', avatar: 'https://ui-avatars.com/api/?name=Mohit+Singh&background=FF8C42&color=fff', role: 'alumni' },
-  { _id: 'u2', name: 'Shivansh Sharma', avatar: 'https://ui-avatars.com/api/?name=Shivansh+Sharma&background=6C63FF&color=fff', role: 'alumni' },
-  { _id: 'u3', name: 'Dhruv Baliyan', avatar: 'https://ui-avatars.com/api/?name=Dhruv+Baliyan&background=2BC0B4&color=fff', role: 'student' },
-  { _id: 'u4', name: 'Suprapti Srivastava', avatar: 'https://ui-avatars.com/api/?name=Suprapti+Srivastava&background=E91E63&color=fff', role: 'student' },
-];
-
 export default function ProfilePage() {
   const { id } = useParams();
   const dispatch = useDispatch();
   const { currentUser, activeRole } = useSelector(state => state.user);
   const [profile, setProfile] = useState(null);
-  const [connected, setConnected] = useState(false);
   const [activeTab, setActiveTab] = useState('about');
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState(null);
 
+  // Connections — real DB-backed via /api/connections.
+  const [connections, setConnections] = useState([]);
+  const [connStatus, setConnStatus] = useState('none'); // 'none' | 'pending' | 'accepted'
+  const [connRecord, setConnRecord] = useState(null);
+  const [connBusy, setConnBusy] = useState(false);
+
+  // This profile's posts — fetched once and filtered by author id.
+  const [userPosts, setUserPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+
+  const profileId = profile?._id;
+  const myId = currentUser?._id;
+  const isOwn = id === 'me' || String(id) === String(myId);
+
+  const [notFound, setNotFound] = useState(false);
+
   useEffect(() => {
     const fetchProfile = async () => {
+      setNotFound(false);
       if (id === 'me') {
+        // 'me' should resolve to the actual signed-in user; fall back to a
+        // mock only as a last resort for the demo session.
+        if (currentUser?._id && !String(currentUser._id).startsWith('mock-')) {
+          try {
+            const res = await axios.get(`${API_URL}/api/users/${currentUser._id}`);
+            setProfile(res.data);
+            return;
+          } catch (e) {
+            // fall through to mock
+          }
+        }
         setProfile(currentUser?.role === 'alumni' ? mockAlumniProfile : mockStudentProfile);
         return;
       }
@@ -81,11 +101,98 @@ export default function ProfilePage() {
         const res = await axios.get(`${API_URL}/api/users/${id}`);
         setProfile(res.data);
       } catch (e) {
-        setProfile(activeRole === 'alumni' ? mockAlumniProfile : mockStudentProfile);
+        setProfile(null);
+        setNotFound(true);
       }
     };
     fetchProfile();
-  }, [id, activeRole]);
+  }, [id, activeRole, currentUser?._id]);
+
+  // Fetch posts authored by this profile.
+  useEffect(() => {
+    if (!profileId || String(profileId).startsWith('mock-')) {
+      setUserPosts([]);
+      setPostsLoading(false);
+      return;
+    }
+    setPostsLoading(true);
+    (async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/api/posts`);
+        setUserPosts((data || []).filter(p => String(p.author?._id || p.author) === String(profileId)));
+      } catch (e) {
+        setUserPosts([]);
+      } finally {
+        setPostsLoading(false);
+      }
+    })();
+  }, [profileId]);
+
+  // Load this profile's connections + figure out whether the *viewer* is
+  // already connected/pending with them.
+  useEffect(() => {
+    if (!profileId || String(profileId).startsWith('mock-')) return;
+    (async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/api/connections/${profileId}`);
+        const accepted = (data || []).filter(c => c.status === 'accepted');
+        setConnections(accepted.map(c => {
+          const other = String(c.requester?._id) === String(profileId) ? c.recipient : c.requester;
+          return other;
+        }).filter(Boolean));
+
+        if (myId && !String(myId).startsWith('mock-') && String(myId) !== String(profileId)) {
+          const mine = (data || []).find(c =>
+            (String(c.requester?._id) === String(myId) && String(c.recipient?._id) === String(profileId)) ||
+            (String(c.recipient?._id) === String(myId) && String(c.requester?._id) === String(profileId))
+          );
+          if (mine) {
+            setConnStatus(mine.status);
+            setConnRecord(mine);
+          } else {
+            setConnStatus('none');
+            setConnRecord(null);
+          }
+        }
+      } catch (e) {
+        setConnections([]);
+      }
+    })();
+  }, [profileId, myId]);
+
+  const handleConnect = async () => {
+    if (connBusy || !myId || !profileId) return;
+    if (String(myId).startsWith('mock-')) {
+      alert('Please sign in to send connection requests.');
+      return;
+    }
+    setConnBusy(true);
+    try {
+      const { data } = await axios.post(`${API_URL}/api/connections`, {
+        requester: myId,
+        recipient: profileId
+      });
+      setConnStatus(data.status || 'pending');
+      setConnRecord(data);
+    } catch (e) {
+      // already-exists collisions etc — surface lightly
+      console.warn('connection failed:', e.response?.data?.error || e.message);
+    } finally {
+      setConnBusy(false);
+    }
+  };
+
+  const handleAccept = async () => {
+    if (!connRecord?._id) return;
+    setConnBusy(true);
+    try {
+      const { data } = await axios.put(`${API_URL}/api/connections/${connRecord._id}`, { status: 'accepted' });
+      setConnStatus('accepted');
+      setConnRecord(data);
+    } finally {
+      setConnBusy(false);
+    }
+  };
 
   const openEdit = () => {
     setEditForm({
@@ -143,6 +250,18 @@ export default function ProfilePage() {
     }
   };
 
+  if (notFound) return (
+    <div className="min-h-screen bg-[#f8fafb] dark:bg-gray-950">
+      <RoleSwitcher />
+      <Navbar type="app" />
+      <div className="max-w-md mx-auto px-4 py-20 text-center">
+        <span className="text-4xl block mb-3">🙁</span>
+        <h2 className="text-lg font-semibold text-[#1a1a2e] dark:text-gray-100 mb-1">User not found</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">This profile doesn't exist or has been removed.</p>
+      </div>
+    </div>
+  );
+
   if (!profile) return (
     <div className="min-h-screen bg-[#f8fafb] dark:bg-gray-950">
       <RoleSwitcher />
@@ -152,8 +271,6 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-
-  const isOwn = id === 'me' || id === currentUser?._id;
 
   return (
     <div className="min-h-screen bg-[#f8fafb] dark:bg-gray-950">
@@ -226,18 +343,36 @@ export default function ProfilePage() {
                     )}
                     <button onClick={openEdit} className="w-full btn-outline text-sm py-2">✏️ Edit Profile</button>
                   </>
+                ) : profile.role === 'college' || currentUser?.role === 'college' ? (
+                  // No follow / DM between college admins and users — the
+                  // college role is for oversight, not peer networking.
+                  <p className="text-xs text-gray-400 dark:text-gray-500 italic text-center py-2">
+                    {profile.role === 'college'
+                      ? 'College administrator profile'
+                      : 'College admins manage from the dashboard.'}
+                  </p>
                 ) : (
                   <>
-                    <button
-                      onClick={() => setConnected(!connected)}
-                      className={`w-full text-sm py-2 rounded-lg font-semibold transition-all ${
-                        connected
-                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                          : 'btn-primary'
-                      }`}
-                    >
-                      {connected ? '✓ Connected' : '+ Connect'}
-                    </button>
+                    {connStatus === 'accepted' ? (
+                      <button disabled className="w-full text-sm py-2 rounded-lg font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        ✓ Connected
+                      </button>
+                    ) : connStatus === 'pending' ? (
+                      // Show "Accept" if the request is incoming, otherwise "Pending"
+                      String(connRecord?.recipient?._id || connRecord?.recipient) === String(myId) ? (
+                        <button onClick={handleAccept} disabled={connBusy} className="w-full btn-primary text-sm py-2 disabled:opacity-50">
+                          {connBusy ? '…' : 'Accept request'}
+                        </button>
+                      ) : (
+                        <button disabled className="w-full text-sm py-2 rounded-lg font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
+                          ⏳ Request sent
+                        </button>
+                      )
+                    ) : (
+                      <button onClick={handleConnect} disabled={connBusy} className="w-full btn-primary text-sm py-2 disabled:opacity-50">
+                        {connBusy ? 'Sending…' : '+ Connect'}
+                      </button>
+                    )}
                     <Link href={`/chat?user=${profile._id}`} className="block w-full text-center border border-gray-200 dark:border-gray-600 rounded-lg text-sm py-2 font-medium text-gray-600 dark:text-gray-300 hover:border-[#2BC0B4] hover:text-[#2BC0B4] transition-all">
                       💬 Message
                     </Link>
@@ -384,24 +519,67 @@ export default function ProfilePage() {
 
               {activeTab === 'posts' && (
                 <div className="p-5">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Posts will appear here</p>
+                  {postsLoading ? (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">Loading posts…</p>
+                  ) : userPosts.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                      {profile.name?.split(' ')[0]} hasn't posted yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {userPosts.map(post => (
+                        <article key={post._id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-4 hover:shadow-sm transition-all">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              {new Date(post.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                            {post.flagged && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
+                                ⚠ flagged · {Math.round((post.spamScore || 0) * 100)}%
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{post.content}</p>
+                          {post.image && (
+                            <img src={post.image} alt="" className="mt-3 rounded-lg w-full object-cover max-h-72" />
+                          )}
+                          <div className="flex items-center gap-4 mt-3 text-xs text-gray-500 dark:text-gray-400">
+                            <span>❤️ {post.likes?.length || 0}</span>
+                            <span>💬 {post.comments?.length || 0}</span>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {activeTab === 'connections' && (
                 <div className="p-5">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 font-medium">127 Connections</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {mockConnections.map(user => (
-                      <div key={user._id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-[#2BC0B4]/30 transition-all">
-                        <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full" />
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-[#1a1a2e] dark:text-gray-100 truncate">{user.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.role}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 font-medium">
+                    {connections.length} {connections.length === 1 ? 'Connection' : 'Connections'}
+                  </p>
+                  {connections.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-6">No accepted connections yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {connections.map(user => (
+                        <Link
+                          key={user._id}
+                          href={`/profile/${user._id}`}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-[#2BC0B4]/30 transition-all"
+                        >
+                          <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-[#1a1a2e] dark:text-gray-100 truncate">{user.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {user.occupation || user.education || user.role}
+                            </p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -23,6 +23,7 @@ app.use('/api/messages', require('./routes/messages'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/connections', require('./routes/connections'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
+app.use('/api/stats', require('./routes/stats'));
 app.use('/api/moderation', require('./routes/moderation'));
 
 app.get('/', (req, res) => {

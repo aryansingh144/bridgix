@@ -1,11 +1,38 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import axios from 'axios';
 import { useTheme } from './ThemeProvider';
 import { clearAuth } from '../store/slices/userSlice';
-import { TOKEN_KEY } from '../lib/api';
+import { TOKEN_KEY, API_URL } from '../lib/api';
+
+const POLL_INTERVAL_MS = 15000;
+const isRealId = (id) => typeof id === 'string' && /^[a-f0-9]{24}$/i.test(id);
+
+function timeAgo(date) {
+  if (!date) return '';
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (seconds < 60) return 'now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+// Treat the user as signed-in if either redux says so OR a token exists in
+// localStorage. This avoids the flicker where the navbar briefly shows
+// "Sign in" between page load and the Bootstrap /me round-trip completing.
+function useHasSession() {
+  const reduxAuthed = useSelector(state => state.user.isAuthenticated);
+  const [hasToken, setHasToken] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHasToken(!!window.localStorage.getItem(TOKEN_KEY));
+    }
+  }, [reduxAuthed]);
+  return reduxAuthed || hasToken;
+}
 
 function DarkToggle() {
   const { dark, toggle } = useTheme();
@@ -85,11 +112,53 @@ export default function Navbar({ type = 'landing' }) {
 function AppNavbar({ currentUser, pathname }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { notifications } = useSelector(state => state.app);
-  const { isAuthenticated } = useSelector(state => state.user);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [actingId, setActingId] = useState(null);
+  const isAuthenticated = useHasSession();
   const dispatch = useDispatch();
   const router = useRouter();
-  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const myId = currentUser?._id;
+
+  // Pull incoming pending connection requests so the bell becomes a real
+  // inbox: every other-user → me request with status 'pending' shows up here
+  // and can be accepted/declined inline.
+  const fetchPending = useCallback(async () => {
+    if (!isRealId(myId)) {
+      setPendingRequests([]);
+      return;
+    }
+    try {
+      const { data } = await axios.get(`${API_URL}/api/connections/${myId}`);
+      const incoming = (data || []).filter(c => {
+        const recId = String(c.recipient?._id || c.recipient);
+        return c.status === 'pending' && recId === String(myId);
+      });
+      setPendingRequests(incoming);
+    } catch (e) {
+      setPendingRequests([]);
+    }
+  }, [myId]);
+
+  useEffect(() => {
+    fetchPending();
+    const interval = setInterval(fetchPending, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchPending]);
+
+  const respondToRequest = async (id, status) => {
+    setActingId(id);
+    try {
+      await axios.put(`${API_URL}/api/connections/${id}`, { status });
+      setPendingRequests(prev => prev.filter(r => r._id !== id));
+    } catch (e) {
+      console.warn('respond failed:', e.response?.data?.error || e.message);
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const unreadCount = pendingRequests.length;
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') window.localStorage.removeItem(TOKEN_KEY);
@@ -98,13 +167,22 @@ function AppNavbar({ currentUser, pathname }) {
     router.push('/login');
   };
 
-  const navItems = [
-    { href: '/home', label: 'Home', icon: '🏠' },
-    { href: '/discussion', label: 'Discussion', icon: '💬' },
-    { href: '/chat', label: 'Chats', icon: '✉️' },
-    { href: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
-    { href: '/moderation', label: 'Moderation', icon: '🛡️' },
-  ];
+  // College admins see a dashboard-first nav focused on oversight; everyone
+  // else gets the full social/feed nav.
+  const navItems = currentUser?.role === 'college'
+    ? [
+        { href: '/college-dashboard', label: 'Dashboard', icon: '🏛️' },
+        { href: '/moderation', label: 'Moderation', icon: '🛡️' },
+        { href: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+        { href: '/discussion', label: 'Discussion', icon: '💬' },
+      ]
+    : [
+        { href: '/home', label: 'Home', icon: '🏠' },
+        { href: '/discussion', label: 'Discussion', icon: '💬' },
+        { href: '/chat', label: 'Chats', icon: '✉️' },
+        { href: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+        { href: '/moderation', label: 'Moderation', icon: '🛡️' },
+      ];
 
   return (
     <nav className="bg-white dark:bg-gray-900 shadow-sm dark:shadow-gray-800/50 sticky top-0 z-40 border-b border-gray-100 dark:border-gray-800">
@@ -152,17 +230,61 @@ function AppNavbar({ currentUser, pathname }) {
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 top-11 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-50">
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+              <div className="absolute right-0 top-11 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 z-50">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                   <h3 className="font-semibold text-sm text-[#1a1a2e] dark:text-gray-100">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <span className="text-[10px] font-bold text-white bg-[#FF8C42] px-2 py-0.5 rounded-full">
+                      {unreadCount} pending
+                    </span>
+                  )}
                 </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {notifications.map(n => (
-                    <div key={n.id} className={`px-4 py-3 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer ${!n.read ? 'bg-[#f0fffe] dark:bg-teal-900/20' : ''}`}>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">{n.text}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{n.time}</p>
+                <div className="max-h-80 overflow-y-auto">
+                  {pendingRequests.length === 0 ? (
+                    <div className="px-4 py-8 text-center">
+                      <span className="text-2xl block mb-2">🔔</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">You're all caught up.</p>
                     </div>
-                  ))}
+                  ) : (
+                    pendingRequests.map(req => {
+                      const sender = req.requester || {};
+                      return (
+                        <div key={req._id} className="px-4 py-3 border-b border-gray-50 dark:border-gray-700/50 bg-[#f0fffe] dark:bg-teal-900/20">
+                          <div className="flex items-start gap-3">
+                            <img
+                              src={sender.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(sender.name || 'U')}&background=2BC0B4&color=fff`}
+                              alt={sender.name}
+                              className="w-9 h-9 rounded-full flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-700 dark:text-gray-200">
+                                <span className="font-semibold">{sender.name}</span> sent you a connection request.
+                              </p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                {sender.occupation || sender.education || sender.role} · {timeAgo(req.createdAt)}
+                              </p>
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  onClick={() => respondToRequest(req._id, 'accepted')}
+                                  disabled={actingId === req._id}
+                                  className="flex-1 text-xs font-semibold py-1.5 rounded-md bg-gradient-to-r from-[#2BC0B4] to-[#1a9e93] text-white hover:shadow disabled:opacity-50"
+                                >
+                                  {actingId === req._id ? '…' : 'Accept'}
+                                </button>
+                                <button
+                                  onClick={() => respondToRequest(req._id, 'declined')}
+                                  disabled={actingId === req._id}
+                                  className="flex-1 text-xs font-semibold py-1.5 rounded-md border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-red-300 hover:text-red-500 disabled:opacity-50"
+                                >
+                                  Decline
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -175,8 +297,8 @@ function AppNavbar({ currentUser, pathname }) {
               title={currentUser?.name}
             >
               <img
-                src={currentUser?.avatar || `https://ui-avatars.com/api/?name=${currentUser?.name}&background=2BC0B4&color=fff`}
-                alt={currentUser?.name}
+                src={currentUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2BC0B4&color=fff`}
+                alt={currentUser?.name || 'User'}
                 className="w-9 h-9 rounded-full object-cover border-2 border-[#2BC0B4]"
               />
             </button>

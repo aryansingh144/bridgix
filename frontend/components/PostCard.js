@@ -17,30 +17,33 @@ export default function PostCard({ post }) {
   const isLiked = localPost.likes?.includes(currentUser?._id);
 
   const handleLike = async () => {
-    dispatch(togglePostLike({ postId: localPost._id, userId: currentUser._id }));
+    if (!currentUser?._id) return;
+    const userId = currentUser._id;
+    dispatch(togglePostLike({ postId: localPost._id, userId }));
     setLocalPost(prev => {
       const likes = [...(prev.likes || [])];
-      const idx = likes.indexOf(currentUser._id);
-      if (idx === -1) likes.push(currentUser._id);
+      const idx = likes.indexOf(userId);
+      if (idx === -1) likes.push(userId);
       else likes.splice(idx, 1);
       return { ...prev, likes };
     });
     try {
-      await axios.put(`${API_URL}/api/posts/${localPost._id}/like`, { userId: currentUser._id });
+      await axios.put(`${API_URL}/api/posts/${localPost._id}/like`, { userId });
     } catch (e) {}
   };
 
   const handleComment = async (e) => {
     e.preventDefault();
-    if (!comment.trim()) return;
+    if (!comment.trim() || !currentUser?._id) return;
     const newComment = { author: currentUser, text: comment, createdAt: new Date().toISOString() };
     setLocalPost(prev => ({ ...prev, comments: [...(prev.comments || []), newComment] }));
+    const text = comment;
     setComment('');
     setShowComment(false);
     try {
       await axios.post(`${API_URL}/api/posts/${localPost._id}/comment`, {
         author: currentUser._id,
-        text: comment
+        text
       });
     } catch (e) {}
   };
@@ -61,8 +64,8 @@ export default function PostCard({ post }) {
       <div className="flex items-start gap-3 mb-3">
         <Link href={`/profile/${author._id || 'me'}`}>
           <img
-            src={author.avatar || `https://ui-avatars.com/api/?name=${author.name}&background=2BC0B4&color=fff`}
-            alt={author.name}
+            src={author.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(author.name || 'User')}&background=2BC0B4&color=fff`}
+            alt={author.name || 'User'}
             className="w-10 h-10 rounded-full object-cover flex-shrink-0"
           />
         </Link>
@@ -149,8 +152,8 @@ export default function PostCard({ post }) {
       {showComment && (
         <form onSubmit={handleComment} className="mt-3 flex gap-2">
           <img
-            src={currentUser?.avatar}
-            alt={currentUser?.name}
+            src={currentUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2BC0B4&color=fff`}
+            alt={currentUser?.name || 'User'}
             className="w-8 h-8 rounded-full object-cover flex-shrink-0"
           />
           <div className="flex-1 flex gap-2">

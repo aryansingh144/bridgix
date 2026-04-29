@@ -1,7 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Post = require('../models/Post');
+const User = require('../models/User');
 const { classify, logDetection, gatherPostContext } = require('../services/spamClient');
+
+// Points awarded for non-spam contributions. Surfaced on the leaderboard and
+// each user's profile.
+const POINTS_PER_POST = 5;
+const POINTS_PER_COMMENT = 2;
 
 // GET all posts (only non-removed for default feed)
 router.get('/', async (req, res) => {
@@ -47,6 +53,11 @@ router.post('/', async (req, res) => {
       prediction
     });
 
+    // Reward only clean contributions — spam should never climb the leaderboard.
+    if (!prediction.is_spam && author) {
+      await User.findByIdAndUpdate(author, { $inc: { points: POINTS_PER_POST } });
+    }
+
     const populated = await post.populate('author', 'name avatar role');
     res.status(201).json({
       post: populated,
@@ -88,6 +99,9 @@ router.post('/:id/comment', async (req, res) => {
     if (!post) return res.status(404).json({ error: 'Post not found' });
     post.comments.push(req.body);
     await post.save();
+    if (req.body?.author) {
+      await User.findByIdAndUpdate(req.body.author, { $inc: { points: POINTS_PER_COMMENT } });
+    }
     res.json(post);
   } catch (err) {
     res.status(400).json({ error: err.message });

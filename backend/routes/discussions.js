@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Discussion = require('../models/Discussion');
+const User = require('../models/User');
 const { classify, logDetection, gatherDiscussionContext } = require('../services/spamClient');
+
+const POINTS_PER_DISCUSSION = 5;
+const POINTS_PER_REPLY = 2;
 
 // GET all discussions (excludes removed by default)
 router.get('/', async (req, res) => {
@@ -46,6 +50,10 @@ router.post('/', async (req, res) => {
       text: [title, content].filter(Boolean).join('\n'),
       prediction
     });
+
+    if (!prediction.is_spam && author) {
+      await User.findByIdAndUpdate(author, { $inc: { points: POINTS_PER_DISCUSSION } });
+    }
 
     const populated = await discussion.populate('author', 'name avatar role');
     res.status(201).json({
@@ -109,6 +117,10 @@ router.post('/:id/reply', async (req, res) => {
       text: content,
       prediction
     });
+
+    if (!prediction.is_spam && author) {
+      await User.findByIdAndUpdate(author, { $inc: { points: POINTS_PER_REPLY } });
+    }
 
     const populated = await discussion.populate('replies.author', 'name avatar role');
     res.json({

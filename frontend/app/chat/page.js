@@ -71,16 +71,18 @@ export default function ChatPage() {
   );
 
   // Build a unified people list: existing conversations first (most recent at top),
-  // then every other user from the directory you haven't messaged yet. Both share
-  // the same row shape so the left panel can render them uniformly.
+  // then every other user from the directory you haven't messaged yet, restricted
+  // to the current user's college so cross-institution discovery is opt-in only.
   const peopleList = useMemo(() => {
     if (!currentUser?._id) return [];
     const conversationIds = new Set(conversations.map(c => String(c.otherId)));
+    const myCollege = currentUser.college;
     const others = (users || [])
       .filter(u => String(u._id) !== String(currentUser._id) && !conversationIds.has(String(u._id)))
+      .filter(u => !myCollege || u.college === myCollege)
       .map(u => ({ otherId: String(u._id), user: u, lastMessage: null, unread: 0 }));
     return [...conversations, ...others];
-  }, [conversations, users, currentUser?._id]);
+  }, [conversations, users, currentUser?._id, currentUser?.college]);
 
   const fetchMessages = async () => {
     if (!currentUser?._id) return;

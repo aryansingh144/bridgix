@@ -1,10 +1,16 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Connection = require('../models/Connection');
+
+const isValidId = (id) => mongoose.isValidObjectId(id);
 
 // GET connections for a user
 router.get('/:userId', async (req, res) => {
   try {
+    if (!isValidId(req.params.userId)) {
+      return res.json([]); // not a real user — return empty rather than 500
+    }
     const connections = await Connection.find({
       $or: [{ requester: req.params.userId }, { recipient: req.params.userId }]
     })
@@ -20,14 +26,21 @@ router.get('/:userId', async (req, res) => {
 // POST send connection request
 router.post('/', async (req, res) => {
   try {
+    const { requester, recipient } = req.body || {};
+    if (!isValidId(requester) || !isValidId(recipient)) {
+      return res.status(400).json({ error: 'requester and recipient must be valid user ids — sign in first' });
+    }
+    if (String(requester) === String(recipient)) {
+      return res.status(400).json({ error: 'Cannot connect with yourself' });
+    }
     const existing = await Connection.findOne({
       $or: [
-        { requester: req.body.requester, recipient: req.body.recipient },
-        { requester: req.body.recipient, recipient: req.body.requester }
+        { requester, recipient },
+        { requester: recipient, recipient: requester }
       ]
     });
-    if (existing) return res.status(400).json({ error: 'Connection already exists' });
-    const connection = new Connection(req.body);
+    if (existing) return res.status(400).json({ error: 'Connection already exists', existing });
+    const connection = new Connection({ requester, recipient });
     await connection.save();
     res.status(201).json(connection);
   } catch (err) {

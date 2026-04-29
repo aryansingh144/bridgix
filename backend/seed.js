@@ -73,7 +73,7 @@ async function seed() {
       skills: ['Java', 'Spring Boot', 'MySQL', 'Data Structures', 'Algorithms', 'REST APIs'],
       coreNeeds: ['Backend Development Guidance', 'Interview Preparation', 'Project Collaboration'],
       points: 72,
-      college: 'NSIT Delhi',
+      college: 'IIT Delhi',
       quote: '"Code is like humor. When you have to explain it, it\'s bad." — Cory House'
     },
     {
@@ -179,8 +179,17 @@ async function seed() {
       services: ['ML Project Guidance', 'Research Paper Writing', 'Data Science Roadmap', 'Interview Preparation'],
       workExperience: ['Data Scientist - Razorpay (2022-Present)', 'ML Engineer - Swiggy (2020-2022)', 'Research Intern - IISc (2019)'],
       points: 61,
-      college: 'IIT Bombay',
+      college: 'IIT Delhi',
       quote: '"In God we trust. All others must bring data." — W. Edwards Deming'
+    },
+    {
+      name: 'IIT Delhi Admin',
+      email: 'admin@iitd.ac.in',
+      role: 'college',
+      status: 'Active',
+      location: 'New Delhi, India',
+      bio: 'Official admin account for IIT Delhi — manages alumni events, student onboarding, and platform oversight.',
+      college: 'IIT Delhi'
     }
   ];
 
@@ -191,16 +200,18 @@ async function seed() {
   })));
   console.log(`Users created: ${users.length} (default password: "${DEFAULT_PASSWORD}")`);
 
-  const [aryan, dhruv, suprapti, rajat, mohit, paresh, ritwik, shivansh] = users;
+  const [aryan, dhruv, suprapti, rajat, mohit, paresh, ritwik, shivansh, collegeAdmin] = users;
 
   // Create college
   const college = await College.create({
     name: 'IIT Delhi',
     email: 'admin@iitd.ac.in',
     aicteCode: 'AICTE-1-1234567890',
-    logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/9/9e/IIT_Delhi_logo.svg/200px-IIT_Delhi_logo.svg.png',
-    students: [aryan._id, rajat._id],
-    alumni: [mohit._id]
+    // Wikimedia blocks hotlinks (HTTP 400). Use ui-avatars as a reliable
+    // placeholder — same service the rest of the app uses for user avatars.
+    logo: 'https://ui-avatars.com/api/?name=IIT+Delhi&background=2BC0B4&color=fff&size=200&bold=true',
+    students: [aryan._id, dhruv._id, suprapti._id, rajat._id],
+    alumni: [mohit._id, paresh._id, ritwik._id, shivansh._id]
   });
   console.log('College created');
 

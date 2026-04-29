@@ -8,12 +8,9 @@ const initialState = {
   leaderboard: [],
   messages: [],
   connections: [],
-  notifications: [
-    { id: 1, text: 'Mohit Singh replied to your discussion', time: '2h ago', read: false },
-    { id: 2, text: 'Shivansh Sharma sent you a connection request', time: '5h ago', read: false },
-    { id: 3, text: 'New event: Alumni Meetup 2026', time: '1d ago', read: true },
-    { id: 4, text: 'Your post received 10 likes', time: '2d ago', read: true }
-  ],
+  // Notifications are now derived from real backend state (pending connection
+  // requests) by Navbar at runtime — no longer seeded with mock entries.
+  notifications: [],
   sidebarOpen: true,
   postsLoading: false,
   discussionsLoading: false,

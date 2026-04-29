@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Navbar from '../../components/Navbar';
 import RoleSwitcher from '../../components/RoleSwitcher';
 import Sidebar from '../../components/Sidebar';
@@ -12,66 +13,10 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-const mockConnections = [
-  { _id: 'u1', name: 'Mohit Singh', avatar: 'https://ui-avatars.com/api/?name=Mohit+Singh&background=FF8C42&color=fff', occupation: 'Sr. Engineer at Google', role: 'alumni', topSkills: ['System Design', 'Go'] },
-  { _id: 'u2', name: 'Shivansh Sharma', avatar: 'https://ui-avatars.com/api/?name=Shivansh+Sharma&background=6C63FF&color=fff', occupation: 'Data Scientist at Razorpay', role: 'alumni', topSkills: ['ML', 'Python'] },
-  { _id: 'u3', name: 'Dhruv Baliyan', avatar: 'https://ui-avatars.com/api/?name=Dhruv+Baliyan&background=2BC0B4&color=fff', education: 'B.Tech IT, NSIT', role: 'student', topSkills: ['Java', 'Spring Boot'] },
-  { _id: 'u4', name: 'Suprapti Srivastava', avatar: 'https://ui-avatars.com/api/?name=Suprapti+Srivastava&background=E91E63&color=fff', education: 'B.Tech ECE, IIT Kanpur', role: 'student', topSkills: ['IoT', 'C++'] },
-  { _id: 'u5', name: 'Paresh Talwa', avatar: 'https://ui-avatars.com/api/?name=Paresh+Talwa&background=4CAF50&color=fff', occupation: 'PM at Flipkart', role: 'alumni', topSkills: ['Product Mgmt'] },
-];
-
-const mockPosts = [
-  {
-    _id: 'post1',
-    author: { _id: 'u1', name: 'Mohit Singh', avatar: 'https://ui-avatars.com/api/?name=Mohit+Singh&background=FF8C42&color=fff', role: 'alumni', occupation: 'Sr. Engineer at Google' },
-    content: "Excited to share that I've just completed my 5th year at Google! 🎉 The journey has been incredible — from a fresh IIT grad to leading a distributed systems team. To all students: keep learning, stay curious, and don't be afraid to fail. The best is yet to come! #GoogleLife #TechJourney #AlumniStory",
-    image: 'https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?w=600',
-    likes: ['u3', 'u4'], comments: [],
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString()
-  },
-  {
-    _id: 'post2',
-    author: { _id: 'mock-student-1', name: 'Aryan Singh', avatar: 'https://ui-avatars.com/api/?name=Aryan+Singh&background=2BC0B4&color=fff', role: 'student', education: '3rd Year B.Tech CS' },
-    content: "Just finished building my first full-stack project using React and Node.js! It's a task management app with real-time features using Socket.io. Would love some feedback from alumni who've worked on similar projects. Check it out on my GitHub! #WebDev #React #NodeJS #StudentProject",
-    image: '', likes: ['u1', 'u2'],
-    comments: [{ author: { name: 'Mohit Singh', avatar: 'https://ui-avatars.com/api/?name=Mohit+Singh&background=FF8C42&color=fff' }, text: 'Great work! Keep it up.' }],
-    createdAt: new Date(Date.now() - 5 * 3600000).toISOString()
-  },
-  {
-    _id: 'post3',
-    author: { _id: 'u2', name: 'Shivansh Sharma', avatar: 'https://ui-avatars.com/api/?name=Shivansh+Sharma&background=6C63FF&color=fff', role: 'alumni', occupation: 'Data Scientist at Razorpay' },
-    content: "Resources for aspiring Data Scientists 📊\n\n1. Start with Python basics — don't skip this\n2. Learn statistics properly — it's the foundation\n3. Practice on Kaggle competitions\n4. Read research papers — ArXiv is your friend\n5. Build real projects with real data\n\nThe roadmap seems long but each step is worth it. Feel free to reach out! #DataScience #MachineLearning #CareerTips",
-    image: '', likes: ['mock-student-1', 'u3', 'u4'], comments: [],
-    createdAt: new Date(Date.now() - 8 * 3600000).toISOString()
-  },
-  {
-    _id: 'post4',
-    author: { _id: 'u4', name: 'Suprapti Srivastava', avatar: 'https://ui-avatars.com/api/?name=Suprapti+Srivastava&background=E91E63&color=fff', role: 'student', education: '4th Year ECE, IIT Kanpur' },
-    content: "Our IoT project won 2nd place at the National Hackathon! We built a smart irrigation system that reduces water usage by 40% using ML-based weather prediction. So proud of my team! #IoT #Hackathon #SmartAgriculture",
-    image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=600',
-    likes: ['u1', 'u5', 'mock-student-1'], comments: [],
-    createdAt: new Date(Date.now() - 12 * 3600000).toISOString()
-  },
-  {
-    _id: 'post5',
-    author: { _id: 'u5', name: 'Paresh Talwa', avatar: 'https://ui-avatars.com/api/?name=Paresh+Talwa&background=4CAF50&color=fff', role: 'alumni', occupation: 'PM at Flipkart' },
-    content: "How I transitioned from Software Engineer to Product Manager 🚀\n\n• Engineering background is a HUGE advantage in PM\n• Learn to empathize with users, not just systems\n• Practice product sense through case studies daily\n• Network with PMs and shadow their work\n\nDM me if you want to chat about your PM journey! #ProductManagement #CareerChange",
-    image: '', likes: ['mock-student-1', 'u3'], comments: [],
-    createdAt: new Date(Date.now() - 20 * 3600000).toISOString()
-  }
-];
-
 const placementAlumni = [
   { _id: 'u1', name: 'Mohit Singh', avatar: 'https://ui-avatars.com/api/?name=Mohit+Singh&background=FF8C42&color=fff', occupation: 'Sr. Engineer at Google', role: 'alumni', topSkills: ['System Design', 'Interviews'], services: ['Mock Interviews', 'Resume Review', 'FAANG Prep'] },
   { _id: 'u5', name: 'Paresh Talwa', avatar: 'https://ui-avatars.com/api/?name=Paresh+Talwa&background=4CAF50&color=fff', occupation: 'PM at Flipkart', role: 'alumni', topSkills: ['Product Mgmt', 'Case Studies'], services: ['PM Interviews', 'Career Switch Advice'] },
   { _id: 'u9', name: 'Ritwik Jadeja', avatar: 'https://ui-avatars.com/api/?name=Ritwik+Jadeja&background=FF5722&color=fff', occupation: 'Co-Founder at TechBridge', role: 'alumni', topSkills: ['Startups', 'Hiring'], services: ['Startup Hiring', 'Portfolio Review'] },
-];
-
-const webinars = [
-  { id: 'w1', title: 'Cracking FAANG in 2026', host: 'Mohit Singh', date: 'Mar 20, 2026', time: '6:00 PM IST', attendees: 234, tags: ['FAANG', 'DSA', 'SDE'], color: '#FF8C42' },
-  { id: 'w2', title: 'Breaking into Data Science', host: 'Shivansh Sharma', date: 'Mar 25, 2026', time: '7:00 PM IST', attendees: 189, tags: ['ML', 'Python', 'Career'], color: '#6C63FF' },
-  { id: 'w3', title: 'From Student to PM', host: 'Paresh Talwa', date: 'Apr 2, 2026', time: '5:30 PM IST', attendees: 145, tags: ['Product', 'Career Switch'], color: '#4CAF50' },
-  { id: 'w4', title: 'Open Source — Your Path to Top Companies', host: 'Ritwik Jadeja', date: 'Apr 10, 2026', time: '6:30 PM IST', attendees: 112, tags: ['Open Source', 'GitHub'], color: '#2BC0B4' },
 ];
 
 const academicResources = [
@@ -145,49 +90,87 @@ function AcademicTab() {
   );
 }
 
-function WebinarTab() {
-  const [registered, setRegistered] = useState({});
+function WebinarTab({ currentUserId }) {
+  const [events, setEvents] = useState([]);
+  const [busyId, setBusyId] = useState(null);
+  const colors = ['#FF8C42', '#6C63FF', '#4CAF50', '#2BC0B4'];
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/events`);
+        setEvents(res.data || []);
+      } catch (e) {
+        setEvents([]);
+      }
+    })();
+  }, []);
+
+  const isRegistered = (event) =>
+    !!currentUserId && (event.attendees || []).some(a => String(a._id || a) === String(currentUserId));
+
+  const handleRegister = async (event) => {
+    if (!currentUserId || !/^[a-f0-9]{24}$/i.test(currentUserId)) {
+      alert('Sign in to register for events.');
+      return;
+    }
+    if (isRegistered(event) || busyId === event._id) return;
+    setBusyId(event._id);
+    try {
+      const { data } = await axios.put(`${API_URL}/api/events/${event._id}/register`, { userId: currentUserId });
+      setEvents(prev => prev.map(e => (e._id === event._id ? { ...e, attendees: data.attendees } : e)));
+    } catch (e) {
+      console.warn('register failed:', e.response?.data?.error || e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="card bg-gradient-to-r from-[#6C63FF]/10 to-[#6C63FF]/5 dark:from-[#6C63FF]/10 dark:to-transparent border-[#6C63FF]/20">
-        <h2 className="font-bold text-[#1a1a2e] dark:text-gray-100 mb-1">🎥 Upcoming Webinars</h2>
+        <h2 className="font-bold text-[#1a1a2e] dark:text-gray-100 mb-1">🎥 Upcoming Events & Webinars</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">Join live sessions hosted by alumni on topics ranging from technical interviews to career transitions.</p>
       </div>
-      {webinars.map(w => (
-        <div key={w.id} className="card">
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-lg" style={{ backgroundColor: w.color }}>
-              🎙️
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-[#1a1a2e] dark:text-gray-100 text-sm mb-0.5">{w.title}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Hosted by <span className="font-medium text-[#2BC0B4]">{w.host}</span></p>
-              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
-                <span>📅 {w.date}</span>
-                <span>⏰ {w.time}</span>
-                <span>👥 {w.attendees} attending</span>
+      {events.length === 0 && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">No events scheduled yet.</p>
+      )}
+      {events.map((event, i) => {
+        const registered = isRegistered(event);
+        const date = new Date(event.date);
+        return (
+          <div key={event._id} className="card hover:shadow-md transition-all">
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold text-lg" style={{ backgroundColor: colors[i % colors.length] }}>
+                🎙️
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex gap-1.5">
-                  {w.tags.map(t => (
-                    <span key={t} className="text-xs bg-[#e8faf9] dark:bg-teal-900/30 text-[#2BC0B4] px-2 py-0.5 rounded-full">{t}</span>
-                  ))}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-[#1a1a2e] dark:text-gray-100 text-sm mb-0.5">{event.title}</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Speakers: <span className="font-medium text-[#2BC0B4]">{(event.speakers || []).slice(0, 2).join(', ') || '—'}</span></p>
+                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  <span>📅 {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  <span>📍 {event.location || 'Online'}</span>
+                  <span>👥 {(event.attendees || []).length} attending</span>
                 </div>
-                <button
-                  onClick={() => setRegistered(r => ({ ...r, [w.id]: !r[w.id] }))}
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                    registered[w.id]
-                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                      : 'btn-primary py-1.5 px-3'
-                  }`}
-                >
-                  {registered[w.id] ? '✓ Registered' : 'Register'}
-                </button>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 truncate pr-2">{event.entryFee || 'Free'}</span>
+                  <button
+                    onClick={() => handleRegister(event)}
+                    disabled={registered || busyId === event._id}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                      registered
+                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        : 'bg-gradient-to-r from-[#2BC0B4] to-[#1a9e93] text-white hover:shadow'
+                    }`}
+                  >
+                    {busyId === event._id ? '…' : registered ? '✓ Registered' : 'Register'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -201,23 +184,54 @@ function HomePageInner() {
   const activeTab = searchParams.get('tab') || 'feed';
 
   const [newPost, setNewPost] = useState('');
-  const [displayPosts, setDisplayPosts] = useState(mockPosts);
+  const [displayPosts, setDisplayPosts] = useState([]);
   const [posting, setPosting] = useState(false);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [people, setPeople] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
 
   useEffect(() => {
-    const fetchPosts = async () => {
+    (async () => {
       try {
         const res = await axios.get(`${API_URL}/api/posts`);
-        if (res.data && res.data.length > 0) {
+        if (res.data) {
           setDisplayPosts(res.data);
           dispatch(setPosts(res.data));
         }
       } catch (e) {
-        setDisplayPosts(mockPosts);
+        setDisplayPosts([]);
+      } finally {
+        setPostsLoading(false);
       }
-    };
-    fetchPosts();
-  }, []);
+    })();
+  }, [dispatch]);
+
+  // Pull real users + events for the right rail. Skip the current user; the
+  // "People You May Know" panel surfaces five candidates (alumni first since
+  // they're the high-value connections for students).
+  useEffect(() => {
+    if (!currentUser?._id) return;
+    (async () => {
+      try {
+        const [usersRes, eventsRes] = await Promise.all([
+          axios.get(`${API_URL}/api/users`),
+          axios.get(`${API_URL}/api/events`)
+        ]);
+        // College isolation: signed-in users only see peers from their own
+        // college. Falls back to the full directory if college is unknown.
+        const myCollege = currentUser.college;
+        const others = (usersRes.data || [])
+          .filter(u => String(u._id) !== String(currentUser._id) && u.role !== 'college')
+          .filter(u => !myCollege || u.college === myCollege)
+          .sort((a, b) => (a.role === 'alumni' ? -1 : 1));
+        setPeople(others.slice(0, 5));
+        setUpcomingEvents((eventsRes.data || []).slice(0, 3));
+      } catch (e) {
+        setPeople([]);
+        setUpcomingEvents([]);
+      }
+    })();
+  }, [currentUser?._id]);
 
   const [moderationNotice, setModerationNotice] = useState(null);
 
@@ -288,7 +302,7 @@ function HomePageInner() {
             {activeTab === 'academic' && <AcademicTab />}
 
             {/* Webinar tab */}
-            {activeTab === 'webinar' && <WebinarTab />}
+            {activeTab === 'webinar' && <WebinarTab currentUserId={currentUser?._id} />}
 
             {/* Default feed */}
             {activeTab === 'feed' && (
@@ -297,8 +311,8 @@ function HomePageInner() {
                 <div className="card mb-4">
                   <div className="flex gap-3 mb-3">
                     <img
-                      src={currentUser?.avatar}
-                      alt={currentUser?.name}
+                      src={currentUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'User')}&background=2BC0B4&color=fff`}
+                      alt={currentUser?.name || 'User'}
                       className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                     />
                     <form onSubmit={handlePost} className="flex-1">
@@ -357,6 +371,30 @@ function HomePageInner() {
 
                 {/* Posts */}
                 <div>
+                  {postsLoading && displayPosts.length === 0 && (
+                    <div className="space-y-4">
+                      {[0, 1].map(i => (
+                        <div key={i} className="card animate-pulse">
+                          <div className="flex gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-3 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                              <div className="h-2 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                            </div>
+                          </div>
+                          <div className="h-3 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+                          <div className="h-3 w-4/5 bg-gray-200 dark:bg-gray-700 rounded" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!postsLoading && displayPosts.length === 0 && (
+                    <div className="card text-center py-10">
+                      <span className="text-3xl block mb-2">📝</span>
+                      <p className="text-sm font-semibold text-[#1a1a2e] dark:text-gray-100">No posts yet</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Be the first to share something with your network.</p>
+                    </div>
+                  )}
                   {displayPosts.map(post => (
                     <PostCard key={post._id} post={post} />
                   ))}
@@ -368,37 +406,58 @@ function HomePageInner() {
           {/* Right Panel */}
           <div className="w-64 shrink-0">
             <div className="card">
-              <h3 className="font-semibold text-[#1a1a2e] dark:text-gray-100 text-sm mb-3">People You May Know</h3>
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {mockConnections.map(user => (
-                  <UserCard key={user._id} user={user} compact={true} />
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-[#1a1a2e] dark:text-gray-100 text-sm">People You May Know</h3>
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">{people.length}</span>
               </div>
-              <button className="text-[#2BC0B4] text-sm font-medium mt-3 hover:underline block w-full text-center">
-                Show more →
-              </button>
+              {people.length === 0 ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">No suggestions yet — sign in to discover your network.</p>
+              ) : (
+                <>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {people.map(user => (
+                      <UserCard
+                        key={user._id}
+                        user={user}
+                        compact={true}
+                        currentUserId={currentUser?._id}
+                      />
+                    ))}
+                  </div>
+                  <Link href="/network" className="text-[#2BC0B4] text-sm font-medium mt-3 hover:underline block w-full text-center">
+                    Show more →
+                  </Link>
+                </>
+              )}
             </div>
 
             <div className="card mt-4">
               <h3 className="font-semibold text-[#1a1a2e] dark:text-gray-100 text-sm mb-3">Upcoming Events</h3>
-              <div className="space-y-3">
-                {[
-                  { title: 'Alumni Meetup', date: 'Mar 28', color: '#FF8C42' },
-                  { title: 'AI Seminar', date: 'Apr 5', color: '#2BC0B4' },
-                  { title: 'CS Conference', date: 'Apr 15', color: '#6C63FF' }
-                ].map(event => (
-                  <div key={event.title} className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                      style={{ backgroundColor: event.color }}>
-                      {event.date.split(' ')[1]}
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-[#1a1a2e] dark:text-gray-100">{event.title}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{event.date}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {upcomingEvents.length === 0 ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3">No upcoming events.</p>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingEvents.map((event, i) => {
+                    const colors = ['#FF8C42', '#2BC0B4', '#6C63FF'];
+                    const d = new Date(event.date);
+                    const day = d.getDate();
+                    const month = d.toLocaleString('en-US', { month: 'short' });
+                    return (
+                      <Link key={event._id || i} href={`/events/${event._id || ''}`} className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 -mx-2 px-2 py-1.5 rounded-lg transition-colors">
+                        <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center text-white text-[10px] font-bold flex-shrink-0 leading-tight"
+                          style={{ backgroundColor: colors[i % colors.length] }}>
+                          <span className="text-sm">{day}</span>
+                          <span className="text-[8px] opacity-90">{month}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-[#1a1a2e] dark:text-gray-100 truncate">{event.title}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{event.location || 'Online'}</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

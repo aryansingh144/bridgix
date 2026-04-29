@@ -9,7 +9,7 @@ const {
 } = require('../services/auth');
 const { requireAuth } = require('../middleware/auth');
 
-const ROLES = ['student', 'alumni'];
+const ROLES = ['student', 'alumni', 'college'];
 
 router.post('/signup', async (req, res) => {
   try {

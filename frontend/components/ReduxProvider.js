@@ -14,14 +14,22 @@ function Bootstrap() {
 
     (async () => {
       // 1. If we have a token, restore the real session.
-      const token = typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null;
-      if (token) {
+      const startingToken = typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null;
+      if (startingToken) {
         try {
           const { data } = await api.get('/api/auth/me');
           if (!cancelled) dispatch(setAuth({ user: data }));
         } catch (e) {
-          if (typeof window !== 'undefined') window.localStorage.removeItem(TOKEN_KEY);
-          if (!cancelled) dispatch(clearAuth());
+          // Only clear if the token in storage is still the one we
+          // started with. A fresh login mid-flight replaces it, and
+          // we must not wipe that out.
+          if (typeof window !== 'undefined') {
+            const current = window.localStorage.getItem(TOKEN_KEY);
+            if (current === startingToken) {
+              window.localStorage.removeItem(TOKEN_KEY);
+              if (!cancelled) dispatch(clearAuth());
+            }
+          }
         }
       }
 

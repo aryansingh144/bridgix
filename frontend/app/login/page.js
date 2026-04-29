@@ -28,7 +28,7 @@ export default function LoginPage() {
       const { data } = await api.post('/api/auth/login', form);
       window.localStorage.setItem(TOKEN_KEY, data.token);
       dispatch(setAuth({ user: data.user }));
-      router.push('/home');
+      router.push(data.user?.role === 'college' ? '/college-dashboard' : '/home');
     } catch (e) {
       setServerError(e.response?.data?.error || e.message || 'Login failed');
     } finally {
